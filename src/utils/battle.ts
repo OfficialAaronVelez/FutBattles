@@ -1,6 +1,6 @@
 import type {
   Team7v7, FormationSlot,
-  BattleMatchup, BattleRound, BattleResult,
+  BattleMatchup, BattleRound,
   RealPlayer, Formation7v7, UserCard,
   CreateDuel,
 } from '../types'

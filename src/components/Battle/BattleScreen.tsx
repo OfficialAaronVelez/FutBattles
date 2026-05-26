@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useGameStore } from '../../store/gameStore'
 import { oopPenaltyPct, computeChemBonuses } from '../../utils/battle'
-import type { BattleMatchup, BattleRound, UserCard, FormationSlot } from '../../types'
+import type { BattleMatchup, UserCard, FormationSlot } from '../../types'
 
 /* ─────────────────────────────────────────────────────────────────────── */
 /*  Router                                                                  */
@@ -554,7 +554,6 @@ function ResultWrapper({ onGoHome }: { onGoHome?: () => void }) {
       coinsEarned={battle.result.performanceCoins}
       streakMultiplier={battle.result.streakMultiplier}
       manOfMatch={battle.result.manOfMatch}
-      rounds={battle.result.rounds}
       onReset={resetBattle}
       onGoHome={onGoHome ? () => { resetBattle(); onGoHome() } : undefined}
     />
@@ -562,11 +561,11 @@ function ResultWrapper({ onGoHome }: { onGoHome?: () => void }) {
 }
 
 function ResultScreen({
-  playerGoals, aiGoals, winner, coinsEarned, streakMultiplier, manOfMatch, rounds, onReset, onGoHome,
+  playerGoals, aiGoals, winner, coinsEarned, streakMultiplier, manOfMatch, onReset, onGoHome,
 }: {
   playerGoals: number; aiGoals: number; winner: string
   coinsEarned: number; streakMultiplier: number
-  manOfMatch: string | null; rounds: BattleRound[]; onReset: () => void; onGoHome?: () => void
+  manOfMatch: string | null; onReset: () => void; onGoHome?: () => void
 }) {
   const isWin  = winner === 'player'
   const isDraw = winner === 'draw'

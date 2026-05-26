@@ -639,8 +639,6 @@ function ChamberGame({ card, takenStats, onComplete }: MiniGameProps) {
   const [accumulated, setAccumulated] = useState(0)
   const [bust,       setBust]       = useState(false)
   const [done,       setDone]       = useState(false)
-  const safePulls = revealed.filter((r,i) => r && i!==bulletIdx).length
-
   if (!pickedStat) {
     return (
       <GameShell icon="🔫" title="CHAMBER" hint="One bullet in six. Each safe pull is +4. Find the bullet — base value only." accent={RED} playerCard={card}>
@@ -651,8 +649,6 @@ function ChamberGame({ card, takenStats, onComplete }: MiniGameProps) {
 
   const base    = card.stats[pickedStat]
   const current = Math.min(99, base + accumulated)
-  const remaining = 6 - safePulls - (bust ? 1 : 0)
-  const bulletRisk = bust ? 0 : Math.round((1/Math.max(1, remaining - (bust?0:0)))*100)
   // how many unpulled chambers remain (including the bullet)
   const unpulled = revealed.filter(r => !r).length
 

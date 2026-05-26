@@ -45,7 +45,7 @@ function PackOpeningSession() {
   const {
     packSession,
     selectStat, selectPosition, selectCosmetic,
-    replaceStat, skipCard, finalizeCard,
+    replaceStat, finalizeCard,
   } = useGameStore()
 
   if (!packSession) return null
@@ -161,11 +161,6 @@ function PackOpeningSession() {
     selectCosmetic(cosmetic)
   }
 
-  function handleSkip() {
-    setIsRevealed(false)
-    setPendingStat(null)
-    skipCard()
-  }
 
   // ── Top progress bar (shared across all states) ──────────────────────────
   const topBar = (

@@ -4,6 +4,7 @@ import type {
   UserCard,
   PackOpeningState,
   StatKey,
+  PlayerStats,
   Position,
   LockedSlot,
   PackRarity,
@@ -17,7 +18,7 @@ import type {
 import { getPackPlayers, PLAYERS } from '../data/players'
 import { randomCosmetic } from '../data/cosmetics'
 import {
-  generateAiTeam, buildEmptyTeam,
+  generateAiTeam,
   resolveRound, computeManOfMatch, computePerformanceCoins, TOTAL_ROUNDS,
 } from '../utils/battle'
 import { MINI_GAMES } from '../types'
@@ -34,7 +35,7 @@ function varyStats(player: RealPlayer): RealPlayer {
       varied[key as StatKey] = Math.max(40, Math.min(99, val + delta))
     }
   }
-  return { ...player, stats: varied }
+  return { ...player, stats: varied as PlayerStats }
 }
 
 export const PACK_COSTS: Record<PackRarity, number> = {
@@ -410,7 +411,7 @@ export const useGameStore = create<GameStore>()(
           })
         } else {
           // All rounds done — build final result
-          const winner = newPlayerGoals > newAiGoals ? 'player'
+          const winner: 'player' | 'ai' | 'draw' = newPlayerGoals > newAiGoals ? 'player'
                        : newAiGoals > newPlayerGoals ? 'ai'
                        : 'draw'
           const { battleHistory } = get()
