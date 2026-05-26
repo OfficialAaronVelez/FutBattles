@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { PackRarity } from '../../types'
-import { PACK_COSTS } from '../../store/gameStore'
 
 interface PackIntroProps {
   rarity: PackRarity

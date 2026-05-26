@@ -1,4 +1,4 @@
-import type { StatKey, CardCosmetic } from '../../types'
+import type { StatKey, CardCosmetic, Position } from '../../types'
 import { FutCard } from '../CardDisplay/FutCard'
 import { PLAYERS } from '../../data/players'
 
@@ -21,7 +21,7 @@ export function CardBuilder({
   const finalCard = {
     id: 'final',
     name: playerName,
-    position: lockedPosition?.position ?? null,
+    position: (lockedPosition?.position ?? null) as Position | null,
     cosmetic: lockedCosmetic ?? ('base' as CardCosmetic),
     stats,
     createdAt: Date.now(),
