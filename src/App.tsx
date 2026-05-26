@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
 import { AuthScreen } from './components/Auth/AuthScreen'
@@ -9,10 +9,11 @@ import { TeamSelector } from './components/Battle/TeamSelector'
 import { BattleScreen } from './components/Battle/BattleScreen'
 import { BattleHistory } from './components/Battle/BattleHistory'
 import { useGameStore } from './store/gameStore'
+import type { DailyMissions } from './store/gameStore'
 import { circleAvatar } from './utils/portrait'
 import type { BattleRecord, UserCard } from './types'
 
-type Tab = 'pack' | 'roster' | 'battle'
+type Tab = 'home' | 'pack' | 'roster' | 'battle'
 type BattleSubTab = 'play' | 'history'
 
 /* ── Live feed ───────────────────────────────────────────────────── */
@@ -154,7 +155,7 @@ function computeLeaderboard(history: BattleRecord[], username: string): LBEntry[
 
 export default function App() {
   const [session, setSession]     = useState<Session | null | undefined>(undefined)
-  const [tab, setTab]             = useState<Tab>('pack')
+  const [tab, setTab]             = useState<Tab>('home')
   const [battleSub, setBattleSub] = useState<BattleSubTab>('play')
   const { roster, packSession, battle, coins, battleHistory, startBattle, resetBattle, tutorialDone, dailyMissions, claimedBattleRewards } = useGameStore()
 
@@ -336,6 +337,7 @@ export default function App() {
                 </div>
               </div>
               <div className="tabs">
+                <button className={`tab ${tab === 'home'   ? 'active' : ''}`} onClick={() => setTab('home')}>HOME</button>
                 <button className={`tab ${tab === 'pack'   ? 'active' : ''}`} onClick={() => setTab('pack')}>PACKS</button>
                 <button className={`tab ${tab === 'roster' ? 'active' : ''}`} onClick={() => setTab('roster')}>
                   SQUAD {roster.length > 0 && <span className="tab__badge">{roster.length}</span>}
@@ -350,6 +352,16 @@ export default function App() {
           <main style={{ flex: 1 }}>
             {packSession ? (
               <PackOpening />
+            ) : tab === 'home' ? (
+              <MobileDashboard
+                username={username}
+                coins={coins}
+                streak={streak}
+                battleHistory={battleHistory}
+                roster={roster}
+                dailyMissions={dailyMissions}
+                claimedBattleRewards={claimedBattleRewards}
+              />
             ) : tab === 'pack' ? (
               <PackOpening />
             ) : tab === 'roster' ? (
@@ -488,6 +500,171 @@ export default function App() {
           </aside>
         )}
       </div>
+    </div>
+  )
+}
+
+/* ── MobileDashboard ── */
+function MobileDashboard({ username, coins, streak, battleHistory, roster, dailyMissions, claimedBattleRewards }: {
+  username: string; coins: number; streak: number
+  battleHistory: BattleRecord[]; roster: UserCard[]
+  dailyMissions: DailyMissions; claimedBattleRewards: number
+}) {
+  const leaderboard = useMemo(() => computeLeaderboard(battleHistory, username), [battleHistory, username])
+  const feed        = useMemo(() => buildLiveFeed(battleHistory, roster, username), [battleHistory, roster, username])
+
+  const totalWins   = battleHistory.filter(r => r.result === 'win').length
+  const winsInCycle = totalWins % 3
+  const remaining   = winsInCycle === 0 ? 3 : 3 - winsInCycle
+
+  const sectionTitle = (label: string, right?: string) => (
+    <div className="rail__section-title" style={{ marginBottom: 8 }}>
+      <span>{label}</span>
+      {right && <span style={{ color: 'var(--gold-1)' }}>{right}</span>}
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '16px 16px 48px' }}>
+
+      {/* ── Profile card ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        background: 'rgba(255,255,255,0.025)', border: '1px solid var(--line)',
+        borderRadius: 16, padding: '14px 16px',
+      }}>
+        <img src={circleAvatar(username)} alt="" style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--ink-0)', letterSpacing: '0.04em', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {username}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--ink-2)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 3 }}>LVL 1 · ROOKIE</div>
+          <div style={{ marginTop: 6, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 999, overflow: 'hidden' }}>
+            <div style={{ width: '64%', height: '100%', background: 'linear-gradient(90deg, var(--gold-2), var(--gold-1))', borderRadius: 999 }} />
+          </div>
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          background: 'rgba(255,214,107,0.10)', border: '1px solid rgba(255,214,107,0.25)',
+          borderRadius: 10, padding: '6px 10px', flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 13, lineHeight: 1 }}>¢</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--gold-1)', letterSpacing: '0.04em' }}>
+            {coins.toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Streak banner ── */}
+      {streak >= 3 && (
+        <div style={{
+          textAlign: 'center', padding: '10px 16px', borderRadius: 12,
+          background: 'rgba(255,138,58,0.10)', border: '1px solid rgba(255,138,58,0.3)',
+          fontSize: 13, fontWeight: 700, color: '#ff8a3a',
+          animation: 'glow-pulse 1s ease-in-out infinite',
+        }}>
+          🔥 {streak}-WIN STREAK — Keep it going!
+        </div>
+      )}
+
+      {/* ── Daily missions ── */}
+      <div>
+        {sectionTitle('DAILY MISSIONS')}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <MissionRow icon="⚔️" title="Win 3 battles"    sub={`${Math.min(dailyMissions.battlesWon, 3)}/3 today`}                   reward="+500" done={dailyMissions.battlesRewarded} />
+          <MissionRow icon="📦" title="Open a Gold pack"  sub={dailyMissions.goldPackOpened ? 'Completed!' : 'Finalize a Gold pack card'} reward="+250" done={dailyMissions.goldPackOpened} />
+          <MissionRow icon="⚡" title="Forge a Cosmetic"  sub={dailyMissions.cosmeticForged ? 'Completed!' : 'Accept a cosmetic in a pack'} reward="+1k"  done={dailyMissions.cosmeticForged} />
+        </div>
+      </div>
+
+      {/* ── Next reward ── */}
+      <div className="rail__card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div className="eyebrow" style={{ color: 'var(--gold-1)' }}>NEXT REWARD</div>
+            <div className="font-display" style={{ fontSize: 22, color: 'var(--ink-0)', letterSpacing: '0.04em', marginTop: 2 }}>+500 COINS</div>
+          </div>
+          <div style={{ fontSize: 24 }}>🎁</div>
+        </div>
+        <div style={{ fontSize: 11, color: winsInCycle === 0 && claimedBattleRewards > 0 ? 'var(--green-1)' : 'var(--ink-2)', marginTop: 6 }}>
+          {winsInCycle === 0 && claimedBattleRewards > 0
+            ? `✓ Reward ${claimedBattleRewards} claimed! Win 3 more.`
+            : `Win ${remaining} more battle${remaining !== 1 ? 's' : ''} to unlock`}
+        </div>
+        <div className="progress" style={{ height: 6, marginTop: 8 }}>
+          <div className="progress__fill" style={{ width: `${(winsInCycle / 3) * 100}%`, transition: 'width 0.4s ease' }} />
+        </div>
+        {claimedBattleRewards > 0 && (
+          <div style={{ fontSize: 9, color: 'var(--ink-3)', marginTop: 4, fontFamily: 'var(--font-mono)' }}>
+            {claimedBattleRewards} reward{claimedBattleRewards !== 1 ? 's' : ''} earned total
+          </div>
+        )}
+      </div>
+
+      {/* ── Season standings ── */}
+      <div>
+        {sectionTitle('SEASON STANDINGS', `WK ${Math.max(1, Math.ceil(battleHistory.length / 5))}`)}
+        <div style={{ fontSize: 8, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', padding: '0 10px 4px', display: 'flex', gap: 10 }}>
+          <div style={{ width: 24, textAlign: 'center' }}>#</div>
+          <div style={{ width: 28 }} />
+          <div style={{ flex: 1 }}>PLAYER</div>
+          <div>W-D-L · PTS</div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {leaderboard.map(r => (
+            <div key={r.name} className={`lb-row ${r.isUser ? 'lb-self' : ''}`}>
+              <div className={`lb-row__rank ${r.cls}`}>{r.rank}</div>
+              <img className="lb-row__avatar" src={circleAvatar(r.seed)} alt="" />
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: r.isUser ? 'var(--gold-1)' : 'var(--ink-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {r.name}
+                </div>
+                <div style={{ fontSize: 9, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+                  {r.wins}W · {r.draws}D · {r.losses}L
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
+                <div className="lb-row__score">{r.pts}</div>
+                <div style={{ fontSize: 8, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', lineHeight: 1 }}>pts</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {battleHistory.length === 0 && (
+          <div style={{ fontSize: 10, color: 'var(--ink-3)', textAlign: 'center', padding: '8px 0', fontStyle: 'italic' }}>
+            Play your first battle to appear on the board
+          </div>
+        )}
+      </div>
+
+      {/* ── Live feed ── */}
+      <div>
+        {sectionTitle('LIVE FEED')}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {feed.map((f, i) => {
+            const isMe = f.who === username
+            return (
+              <div key={i} style={{
+                display: 'flex', gap: 8, alignItems: 'flex-start', padding: '8px 10px',
+                background: isMe ? 'rgba(255,214,107,0.06)' : 'rgba(255,255,255,0.02)',
+                border: `1px solid ${isMe ? 'rgba(255,214,107,0.2)' : 'var(--line)'}`,
+                borderRadius: 10,
+              }}>
+                <div style={{ fontSize: 16, lineHeight: 1.2 }}>{f.emoji}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 11, color: 'var(--ink-1)', lineHeight: 1.35 }}>
+                    <span style={{ color: f.accent, fontWeight: 800 }}>{isMe ? 'YOU' : f.who}</span>{' '}{f.what}
+                  </div>
+                  <div style={{ fontSize: 9, color: 'var(--ink-3)', marginTop: 2, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                    {timeAgo(f.ts)}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
     </div>
   )
 }
