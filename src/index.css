@@ -358,6 +358,10 @@ input { font-family: inherit; }
   55%  { transform: scale(1.25) translateY(-4px); opacity: 1; }
   100% { transform: scale(1) translateY(0);    opacity: 1; }
 }
+@keyframes slide-up-fade {
+  0%   { transform: translateY(18px); opacity: 0; }
+  100% { transform: translateY(0);    opacity: 1; }
+}
 
 /* ---------- buttons ---------- */
 .btn {
