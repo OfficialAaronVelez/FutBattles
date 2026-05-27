@@ -7,7 +7,8 @@ const DEV = import.meta.env.DEV
 const PACK_TIERS: { rarity: PackRarity; label: string; sub: string; range: string; crest: string }[] = [
   { rarity: 'bronze', label: 'BRONZE', sub: 'Starter Pack', range: '60–74 OVR', crest: 'B' },
   { rarity: 'silver', label: 'SILVER', sub: 'Pro Pack',     range: '75–82 OVR', crest: 'S' },
-  { rarity: 'gold',   label: 'GOLD',   sub: 'Elite Pack',   range: '83–99 OVR', crest: 'G' },
+  { rarity: 'gold',   label: 'GOLD',   sub: 'Elite Pack',   range: '83–88 OVR', crest: 'G' },
+  { rarity: 'icon',   label: 'ICON',   sub: 'Legends Pack', range: 'Forge to 89+', crest: '★' },
 ]
 
 const SQUAD_SIZE = 7
@@ -112,7 +113,7 @@ export function PackSelector() {
       {/* Pack tier picker */}
       <div>
         <div className="eyebrow text-center" style={{ marginBottom: 10 }}>Choose your pack</div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, maxWidth: 440, margin: '0 auto' }}>
           {PACK_TIERS.map(t => {
             const c      = PACK_COSTS[t.rarity]
             const broke  = coins < c

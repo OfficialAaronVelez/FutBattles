@@ -1,7 +1,32 @@
-import type { RealPlayer, PackRarity } from '../types'
+import type { RealPlayer, PackRarity, PlayerStats } from '../types'
+import { STAT_KEYS } from '../types'
+
+// ── ICON LEGENDS (89–99) ─────────────────────────────────────────────────────
+export const ICON_LEGENDS: RealPlayer[] = [
+  { id: 'pele',           name: 'Pelé',            club: 'Santos',          nation: 'Brazil',      position: 'ST',  overall: 95, wikiTitle: 'Pelé',                      stats: { PAC: 93, SHO: 95, PAS: 91, DRI: 94, DEF: 58, PHY: 74 } },
+  { id: 'maradona',       name: 'Maradona',        club: 'Napoli',          nation: 'Argentina',   position: 'CAM', overall: 94, wikiTitle: 'Diego Maradona',            stats: { PAC: 91, SHO: 92, PAS: 93, DRI: 96, DEF: 40, PHY: 78 } },
+  { id: 'ronaldo_r9',     name: 'Ronaldo',         club: 'Real Madrid',     nation: 'Brazil',      position: 'ST',  overall: 94, wikiTitle: 'Ronaldo (Brazilian footballer)', stats: { PAC: 94, SHO: 94, PAS: 78, DRI: 93, DEF: 42, PHY: 75 } },
+  { id: 'messi',          name: 'Messi',           club: 'Barcelona',       nation: 'Argentina',   position: 'RW',  overall: 93, wikiTitle: 'Lionel Messi',              stats: { PAC: 85, SHO: 92, PAS: 91, DRI: 96, DEF: 35, PHY: 65 } },
+  { id: 'maldini',        name: 'Maldini',         club: 'AC Milan',        nation: 'Italy',       position: 'CB',  overall: 92, wikiTitle: 'Paolo Maldini',             stats: { PAC: 82, SHO: 55, PAS: 74, DRI: 72, DEF: 95, PHY: 82 } },
+  { id: 'ronaldinho',     name: 'Ronaldinho',      club: 'Barcelona',       nation: 'Brazil',      position: 'LW',  overall: 91, wikiTitle: 'Ronaldinho',                  stats: { PAC: 89, SHO: 86, PAS: 90, DRI: 95, DEF: 38, PHY: 72 } },
+  { id: 'zidane',         name: 'Zidane',          club: 'Real Madrid',     nation: 'France',      position: 'CAM', overall: 91, wikiTitle: 'Zinedine Zidane',           stats: { PAC: 82, SHO: 88, PAS: 92, DRI: 94, DEF: 72, PHY: 84 } },
+  { id: 'eusebio',        name: 'Eusébio',         club: 'Benfica',         nation: 'Portugal',    position: 'ST',  overall: 91, wikiTitle: 'Eusébio',                     stats: { PAC: 91, SHO: 93, PAS: 82, DRI: 90, DEF: 44, PHY: 76 } },
+  { id: 'baresi',         name: 'Baresi',          club: 'AC Milan',        nation: 'Italy',       position: 'CB',  overall: 91, wikiTitle: 'Franco Baresi',             stats: { PAC: 78, SHO: 48, PAS: 72, DRI: 70, DEF: 94, PHY: 80 } },
+  { id: 'beckenbauer',    name: 'Beckenbauer',     club: 'Bayern Munich',   nation: 'Germany',     position: 'CB',  overall: 91, wikiTitle: 'Franz Beckenbauer',         stats: { PAC: 80, SHO: 72, PAS: 88, DRI: 84, DEF: 92, PHY: 78 } },
+  { id: 'platini',        name: 'Platini',         club: 'Juventus',        nation: 'France',      position: 'CAM', overall: 91, wikiTitle: 'Michel Platini',            stats: { PAC: 84, SHO: 91, PAS: 92, DRI: 90, DEF: 58, PHY: 72 } },
+  { id: 'van_basten',     name: 'Van Basten',      club: 'AC Milan',        nation: 'Netherlands', position: 'ST',  overall: 90, wikiTitle: 'Marco van Basten',          stats: { PAC: 86, SHO: 93, PAS: 80, DRI: 88, DEF: 42, PHY: 78 } },
+  { id: 'cruyff',         name: 'Cruyff',          club: 'Barcelona',       nation: 'Netherlands', position: 'CF',  overall: 90, wikiTitle: 'Johan Cruyff',              stats: { PAC: 88, SHO: 88, PAS: 91, DRI: 93, DEF: 42, PHY: 70 } },
+  { id: 'henry',          name: 'Henry',           club: 'Arsenal',         nation: 'France',      position: 'ST',  overall: 90, wikiTitle: 'Thierry Henry',             stats: { PAC: 93, SHO: 89, PAS: 82, DRI: 90, DEF: 38, PHY: 76 } },
+  { id: 'xavi',           name: 'Xavi',            club: 'Barcelona',       nation: 'Spain',       position: 'CM',  overall: 90, wikiTitle: 'Xavi',                        stats: { PAC: 76, SHO: 78, PAS: 94, DRI: 90, DEF: 68, PHY: 66 } },
+  { id: 'gullit',         name: 'Gullit',          club: 'AC Milan',        nation: 'Netherlands', position: 'CAM', overall: 90, wikiTitle: 'Ruud Gullit',               stats: { PAC: 84, SHO: 86, PAS: 86, DRI: 86, DEF: 78, PHY: 88 } },
+  { id: 'best',           name: 'Best',            club: 'Man United',      nation: 'N. Ireland',  position: 'RW',  overall: 90, wikiTitle: 'George Best',               stats: { PAC: 92, SHO: 88, PAS: 82, DRI: 93, DEF: 36, PHY: 68 } },
+  { id: 'iniesta',        name: 'Iniesta',         club: 'Barcelona',       nation: 'Spain',       position: 'CM',  overall: 89, wikiTitle: 'Andrés Iniesta',            stats: { PAC: 78, SHO: 80, PAS: 92, DRI: 93, DEF: 62, PHY: 64 } },
+  { id: 'roberto_carlos', name: 'Roberto Carlos',  club: 'Real Madrid',     nation: 'Brazil',      position: 'LB',  overall: 89, wikiTitle: 'Roberto Carlos',            stats: { PAC: 90, SHO: 82, PAS: 84, DRI: 82, DEF: 82, PHY: 84 } },
+  { id: 'bergkamp',       name: 'Bergkamp',        club: 'Arsenal',         nation: 'Netherlands', position: 'CF',  overall: 89, wikiTitle: 'Dennis Bergkamp',           stats: { PAC: 84, SHO: 88, PAS: 86, DRI: 90, DEF: 40, PHY: 72 } },
+]
 
 export const PLAYERS: RealPlayer[] = [
-  // ── GOLD (83+) ──────────────────────────────────────────────────────────────
+  // ── CURRENT STARS (gold pack pool — toned down at open) ───────────────────
   { id: 'mbappe',          name: 'Mbappé',          club: 'Real Madrid',     nation: 'France',      position: 'ST',  overall: 91, wikiTitle: 'Kylian Mbappé',             stats: { PAC: 97, SHO: 89, PAS: 80, DRI: 92, DEF: 36, PHY: 76 } },
   { id: 'haaland',         name: 'Haaland',          club: 'Man City',        nation: 'Norway',      position: 'ST',  overall: 91, wikiTitle: 'Erling Haaland',            stats: { PAC: 89, SHO: 93, PAS: 66, DRI: 80, DEF: 45, PHY: 88 } },
   { id: 'lewandowski',     name: 'Lewandowski',      club: 'Barcelona',       nation: 'Poland',      position: 'ST',  overall: 90, wikiTitle: 'Robert Lewandowski',        stats: { PAC: 78, SHO: 92, PAS: 79, DRI: 86, DEF: 44, PHY: 82 } },
@@ -79,13 +104,44 @@ export const PLAYERS: RealPlayer[] = [
   { id: 'jaden_philogene', name: 'J. Philogene',     club: 'Aston Villa',     nation: 'England',     position: 'RW',  overall: 72, wikiTitle: 'Jaden Philogene',           stats: { PAC: 87, SHO: 65, PAS: 60, DRI: 72, DEF: 28, PHY: 60 } },
 ]
 
+const ICON_IDS = new Set(ICON_LEGENDS.map(p => p.id))
+const GOLD_STAT_NERF = 7
+const GOLD_OVR_CAP = 88
+const ICON_FORGE_NERF = 14
+const ICON_FORGE_OVR_CAP = 82
+
+function overallFromStats(stats: PlayerStats): number {
+  return Math.round(STAT_KEYS.reduce((sum, key) => sum + stats[key], 0) / STAT_KEYS.length)
+}
+
+function toneDownForGoldPack(player: RealPlayer): RealPlayer {
+  const stats = {} as PlayerStats
+  for (const key of STAT_KEYS) {
+    stats[key] = Math.max(40, player.stats[key] - GOLD_STAT_NERF)
+  }
+  const overall = Math.min(GOLD_OVR_CAP, overallFromStats(stats))
+  return { ...player, stats, overall }
+}
+
+/** Icons enter the forge unpolished — mini-games build them up toward legend ratings. */
+function prepareIconForForge(player: RealPlayer): RealPlayer {
+  const stats = {} as PlayerStats
+  for (const key of STAT_KEYS) {
+    stats[key] = Math.max(55, player.stats[key] - ICON_FORGE_NERF)
+  }
+  const overall = Math.min(ICON_FORGE_OVR_CAP, overallFromStats(stats))
+  return { ...player, stats, overall }
+}
+
 export const RARITY_RANGES: Record<PackRarity, { min: number; max: number }> = {
   bronze: { min: 60, max: 74 },
   silver: { min: 75, max: 82 },
-  gold:   { min: 83, max: 99 },
+  gold:   { min: 83, max: 88 },
+  icon:   { min: 89, max: 99 },
 }
 
 export function getRarityTier(overall: number): PackRarity {
+  if (overall >= 89) return 'icon'
   if (overall >= 83) return 'gold'
   if (overall >= 75) return 'silver'
   return 'bronze'
@@ -93,10 +149,24 @@ export function getRarityTier(overall: number): PackRarity {
 
 export function getPackPlayers(rarity: PackRarity, count: number): RealPlayer[] {
   const { min, max } = RARITY_RANGES[rarity]
-  const pool = PLAYERS.filter(p => p.overall >= min && p.overall <= max)
-  // Fall back to closest tier if pool is too small
-  const source = pool.length >= count ? pool : PLAYERS
-  return [...source].sort(() => Math.random() - 0.5).slice(0, count)
+
+  if (rarity === 'icon') {
+    const pool = ICON_LEGENDS.filter(p => p.overall >= min && p.overall <= max)
+    const source = pool.length >= count ? pool : ICON_LEGENDS
+    return [...source]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, count)
+      .map(prepareIconForForge)
+  }
+
+  const pool = PLAYERS.filter(p => !ICON_IDS.has(p.id) && p.overall >= min && p.overall <= max)
+  const fallback = PLAYERS.filter(p => !ICON_IDS.has(p.id))
+  const source = pool.length >= count ? pool : fallback
+
+  return [...source]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, count)
+    .map(p => rarity === 'gold' ? toneDownForGoldPack(p) : p)
 }
 
 export function getStatColor(value: number): string {
@@ -108,6 +178,7 @@ export function getStatColor(value: number): string {
 }
 
 export function getOverallColor(overall: number): string {
+  if (overall >= 89) return '#f5d76e'
   if (overall >= 83) return '#ffd700'
   if (overall >= 75) return '#c0c0c0'
   return '#cd7f32'
@@ -118,5 +189,6 @@ export function getRarityColors(rarity: PackRarity) {
     bronze: { bg: 'from-amber-950 via-amber-800 to-gray-900', border: 'border-amber-600', text: '#cd7f32' },
     silver: { bg: 'from-gray-600 via-gray-700 to-gray-900',   border: 'border-gray-400',  text: '#c0c0c0' },
     gold:   { bg: 'from-yellow-900 via-yellow-800 to-gray-900', border: 'border-yellow-500', text: '#ffd700' },
+    icon:   { bg: 'from-amber-700 via-yellow-600 to-gray-900', border: 'border-yellow-300', text: '#f5d76e' },
   }[rarity]
 }

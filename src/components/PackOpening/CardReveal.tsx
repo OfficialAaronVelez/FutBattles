@@ -17,7 +17,7 @@ const SIZE = { w: 280, h: 420 }
 export function CardReveal({ isRevealed, onReveal, rarity, children, cardIndex, totalCards }: CardRevealProps) {
   const isBonus = cardIndex >= totalCards - 1
   const cbClass = isBonus ? 'bonus' : rarity
-  const crestLetter = isBonus ? '⚡' : rarity === 'gold' ? 'G' : rarity === 'silver' ? 'S' : 'B'
+  const crestLetter = isBonus ? '⚡' : rarity === 'icon' ? '★' : rarity === 'gold' ? 'G' : rarity === 'silver' ? 'S' : 'B'
   const label = isBonus ? 'BONUS' : rarity.toUpperCase()
   const opacityTransition = `opacity 0s ${SWAP_DELAY}ms`
 

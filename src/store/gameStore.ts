@@ -24,6 +24,7 @@ import type {
   BattleRecord,
   CardCosmetic,
   RealPlayer,
+  TacticType,
 } from '../types'
 import { getPackPlayers, PLAYERS } from '../data/players'
 import { randomCosmetic } from '../data/cosmetics'
@@ -135,6 +136,12 @@ export async function initGameStoreForUser(userId: string): Promise<void> {
   migrateLegacyStorage(userId)
   await useGameStore.persist.rehydrate()
 
+  // Mark the store as hydrated immediately after local storage is loaded.
+  // This flag is NOT persisted — it resets to false whenever the store module
+  // is recreated (e.g. during Vite HMR), which lets App.tsx detect the reset
+  // and re-run initialisation instead of showing a stale tutorialDone: false state.
+  useGameStore.setState({ storeHydrated: true })
+
   const meta = loadLocalMeta(userId)
   if (meta) {
     const current = useGameStore.getState()
@@ -189,6 +196,7 @@ export function clearGameStoreOnLogout(): void {
     dailyMissions:        freshDaily(),
     savedLineup:          null,
     claimedBattleRewards: 0,
+    storeHydrated:        false,
   })
   skipPersistWrite = false
 }
@@ -203,6 +211,10 @@ interface GameStore {
   dailyMissions:        DailyMissions
   savedLineup:          { formation: Formation7v7; cardIds: Record<string, string | null> } | null
   claimedBattleRewards: number   // how many 3-win milestone rewards have been claimed
+  /** Runtime flag — true once initGameStoreForUser has rehydrated from storage.
+   *  NOT persisted. Resets to false whenever the store module is recreated (e.g. during HMR)
+   *  which forces a re-initialisation and prevents the tutorial from flashing. */
+  storeHydrated:        boolean
   saveLineup:           (formation: Formation7v7, slots: import('../types').FormationSlot[]) => void
 
   // Tutorial
@@ -226,10 +238,11 @@ interface GameStore {
   startBattle:          () => void
   setPlayerTeam:        (team: Team7v7) => void
   runBattle:            () => void                    // sets up AI team, goes to round-pick
-  pickBattleAttacker:   (cardId: string) => void      // computes round, goes to battling
+  confirmBattleRound:   (attackerId: string, defenderId: string, tactic: TacticType | null) => void
   advanceBattleRound:   () => void                    // after animation: next round or result
   completeBattle:       () => void
   resetBattle:          () => void
+  confirmSub:           (cardId: string, slotId: string) => void
 }
 
 export const useGameStore = create<GameStore>()(
@@ -244,6 +257,7 @@ export const useGameStore = create<GameStore>()(
       dailyMissions:        freshDaily(),
       savedLineup:          null,
       claimedBattleRewards: 0,
+      storeHydrated:        false,
 
       setTutorialDone: () => set({ tutorialDone: true }),
 
@@ -431,10 +445,12 @@ export const useGameStore = create<GameStore>()(
             playerGoals:     0,
             aiGoals:         0,
             completedRounds: [],
-            momentumPlayer:     0,
-            momentumAi:         0,
-            subUsed:            false,
-            attackerUseCounts:  {},
+            momentumPlayer:  0,
+            momentumAi:      0,
+            subUsed:         false,
+            subSlotId:       null,
+            lastAttackerId:  null,
+            currentTactic:   null,
           },
         }),
 
@@ -471,28 +487,30 @@ export const useGameStore = create<GameStore>()(
             playerGoals:     0,
             aiGoals:         0,
             completedRounds: [],
-            momentumPlayer:     0,
-            momentumAi:         0,
-            subUsed:            false,
-            attackerUseCounts:  {},
+            momentumPlayer:  0,
+            momentumAi:      0,
+            subUsed:         false,
+            subSlotId:       null,
+            lastAttackerId:  null,
+            currentTactic:   null,
           },
         })
       },
 
-      pickBattleAttacker: (cardId) => {
+      confirmBattleRound: (attackerId, defenderId, tactic) => {
         const { battle } = get()
         if (!battle?.playerTeam || battle.phase !== 'round-pick') return
 
-        const prevUseCount = battle.attackerUseCounts[cardId] ?? 0
-
         const round = resolveRound(
-          cardId,
+          attackerId,
+          defenderId,
           battle.currentRound,
           battle.playerTeam,
           battle.aiPlayers,
           battle.momentumPlayer,
           battle.momentumAi,
-          prevUseCount,
+          battle.lastAttackerId,
+          tactic,
         )
 
         set({
@@ -500,11 +518,29 @@ export const useGameStore = create<GameStore>()(
             ...battle,
             phase:           'battling',
             completedRounds: [...battle.completedRounds, round],
-            // Goals and momentum updated AFTER animation (advanceBattleRound)
-            attackerUseCounts: {
-              ...battle.attackerUseCounts,
-              [cardId]: prevUseCount + 1,
-            },
+            lastAttackerId:  attackerId,
+            currentTactic:   null,
+          },
+        })
+      },
+
+      confirmSub: (cardId, slotId) => {
+        const { battle, roster } = get()
+        if (!battle?.playerTeam || battle.subUsed) return
+
+        const incomingCard = roster.find(c => c.id === cardId)
+        if (!incomingCard) return
+
+        const newSlots = battle.playerTeam.slots.map(slot =>
+          slot.id === slotId ? { ...slot, card: incomingCard } : slot,
+        )
+
+        set({
+          battle: {
+            ...battle,
+            playerTeam: { ...battle.playerTeam, slots: newSlots },
+            subUsed:     true,
+            subSlotId:   slotId,
           },
         })
       },

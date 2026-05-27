@@ -1370,6 +1370,18 @@ input { font-family: inherit; }
   0%   { transform: translateY(18px); opacity: 0; }
   100% { transform: translateY(0);    opacity: 1; }
 }
+@keyframes holo-shift {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 250% 50%; }
+}
+@keyframes nebula-drift {
+  0%   { transform: scale(1) translate(0, 0);      opacity: 0.85; }
+  100% { transform: scale(1.06) translate(2%, -3%); opacity: 1; }
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1; }
+}
 
 /* ---------- buttons ---------- */
 .btn {
@@ -1428,109 +1440,144 @@ input { font-family: inherit; }
 }
 
 /* ============================================================
-   FUT CARD
+   FUT CARD  — Premium Edition
    ============================================================ */
+
+/* ── Shape & foundation ──────────────────────────────────── */
 .futcard {
   position: relative;
-  width: var(--fc-w, 240px);
-  height: var(--fc-h, 360px);
-  border-radius: var(--card-radius);
-  overflow: hidden;
+  width: var(--fc-w, 232px);
+  height: var(--fc-h, 348px);
+  /* Beveled octagon — all 4 corners cut for a gem-like premium feel */
+  clip-path: polygon(5% 0%, 95% 0%, 100% 3.5%, 100% 96.5%, 95% 100%, 5% 100%, 0% 96.5%, 0% 3.5%);
   user-select: none;
   isolation: isolate;
-  transform-style: preserve-3d;
-  --rarity-1: var(--gold-1);
-  --rarity-2: var(--gold-2);
-  --rarity-3: var(--gold-3);
+  --rarity-1:    var(--gold-1);
+  --rarity-2:    var(--gold-2);
+  --rarity-3:    var(--gold-3);
   --rarity-text: #1a1006;
   --rarity-glow: var(--gold-glow);
 }
+
+/* ── Sizes ────────────────────────────────────────────────── */
 .futcard.size-xs { --fc-w: 118px; --fc-h: 176px; }
 .futcard.size-xs .futcard__ovr-num { font-size: 28px; }
-.futcard.size-xs .futcard__pos { font-size: 12px; }
-.futcard.size-xs .futcard__name { font-size: 12px; }
-.futcard.size-xs .futcard__stat { font-size: 10px; }
-.futcard.size-xs .futcard__inner { padding: 8px 8px 6px; }
+.futcard.size-xs .futcard__pos     { font-size: 12px; }
+.futcard.size-xs .futcard__name    { font-size: 12px; }
+.futcard.size-xs .futcard__stat    { font-size: 10px; }
+.futcard.size-xs .futcard__inner   { padding: 8px 8px 6px; }
 .futcard.size-sm { --fc-w: 168px; --fc-h: 252px; }
 .futcard.size-md { --fc-w: 232px; --fc-h: 348px; }
 .futcard.size-lg { --fc-w: 280px; --fc-h: 420px; }
 
+/* ── Rarity tokens ────────────────────────────────────────── */
 .futcard.rarity-bronze { --rarity-1: var(--bronze-1); --rarity-2: var(--bronze-2); --rarity-3: var(--bronze-3); --rarity-text: #2a1305; --rarity-glow: rgba(209,118,58,0.5); }
 .futcard.rarity-silver { --rarity-1: var(--silver-1); --rarity-2: var(--silver-2); --rarity-3: var(--silver-3); --rarity-text: #161a24; --rarity-glow: rgba(170,180,198,0.5); }
 .futcard.rarity-gold   { --rarity-1: var(--gold-1);   --rarity-2: var(--gold-2);   --rarity-3: var(--gold-3);   --rarity-text: #1a1006; --rarity-glow: var(--gold-glow); }
 .futcard.rarity-icon   { --rarity-1: #fff7d4; --rarity-2: #f5d76e; --rarity-3: #b88c14; --rarity-text: #1a1006; --rarity-glow: rgba(255,230,100,0.7); }
 
+/* ── Layer: Background (multi-stop metallic gradient) ─────── */
 .futcard__bg {
-  position: absolute; inset: 0;
-  background: linear-gradient(150deg, var(--rarity-1) 0%, var(--rarity-2) 35%, var(--rarity-3) 70%, #1a0d04 100%);
-  z-index: -3;
+  position: absolute; inset: 0; z-index: -3;
+  background: linear-gradient(155deg,
+    var(--rarity-1) 0%,
+    var(--rarity-2) 28%,
+    var(--rarity-3) 60%,
+    #050302 100%
+  );
 }
+
+/* ── Layer: Sheen (light bounce off metallic surface) ─────── */
 .futcard__sheen {
-  position: absolute; inset: 0; z-index: -2;
+  position: absolute; inset: 0; z-index: -2; pointer-events: none;
   background:
-    linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.18) 45%, transparent 55%),
-    radial-gradient(circle at 30% 20%, rgba(255,255,255,0.25), transparent 50%);
-  mix-blend-mode: overlay; pointer-events: none;
+    radial-gradient(ellipse 65% 48% at 34% 18%, rgba(255,255,255,0.30) 0%, transparent 65%),
+    linear-gradient(118deg, transparent 30%, rgba(255,255,255,0.16) 48%, transparent 62%),
+    radial-gradient(ellipse 40% 32% at 74% 76%, rgba(0,0,0,0.28) 0%, transparent 60%);
+  mix-blend-mode: overlay;
 }
+
+/* ── Layer: Diagonal energy stripe ───────────────────────── */
 .futcard__stripe {
   position: absolute; left: 0; right: 0; height: 56%; top: 28%;
-  background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.18));
+  background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.16));
   clip-path: polygon(0 18%, 100% 0%, 100% 82%, 0% 100%);
   mix-blend-mode: overlay; z-index: -1; pointer-events: none;
 }
+
+/* ── Layer: Inner frame (traces the beveled edges) ────────── */
+/* Uses inset box-shadow so it's clipped to the octagon by the parent clip-path */
+.futcard__frame {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  box-shadow:
+    inset 0 0 0 2px rgba(255,255,255,0.24),   /* inner rim — bright highlight */
+    inset 0 0 0 4px rgba(0,0,0,0.18);          /* depth shadow just inside rim  */
+}
+
+/* ── Content container ────────────────────────────────────── */
 .futcard__inner {
   position: relative; height: 100%;
   padding: 14px 14px 12px;
   display: flex; flex-direction: column;
   color: rgba(255,255,255,0.92);
-  z-index: 1;
+  z-index: 2;
 }
-/* Gradient scrim to darken lower portion of the card so stats are legible over the photo */
+
+/* Bottom scrim — stats stay readable over the player photo.
+   ::after is a pseudo-element; DOM order places it after real children,
+   so z-index 0 naturally renders it above the photo (also z-index 0). */
 .futcard::after {
   content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 52%;
-  background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.45) 45%, transparent 100%);
-  z-index: 0;
-  pointer-events: none;
-  border-radius: 0 0 var(--card-radius) var(--card-radius);
+  position: absolute; bottom: 0; left: 0; right: 0; height: 54%;
+  background: linear-gradient(to top, rgba(0,0,0,0.84) 0%, rgba(0,0,0,0.5) 42%, transparent 100%);
+  z-index: 1; pointer-events: none;
 }
-/* ice has a light bg with dark text — remove the scrim so it stays legible */
 .futcard.cos-ice::after { display: none; }
+
+/* Top-left rim highlight + bottom-right shadow — angled light on a physical card */
+.futcard::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.22) 0%, transparent 20%),
+    linear-gradient(315deg, rgba(0,0,0,0.18) 0%, transparent 20%);
+  z-index: 5; pointer-events: none;
+}
+
+/* ── Player photo ─────────────────────────────────────────── */
 .futcard__photo {
   position: absolute;
-  top: 6%; left: 6%; right: 6%; height: 66%;
+  top: 6%; left: 5%; right: 5%; height: 66%;
   object-fit: cover; object-position: center top;
-  border-radius: 10px;
-  -webkit-mask-image: radial-gradient(ellipse 70% 85% at 50% 35%, #000 55%, rgba(0,0,0,0.6) 80%, transparent 100%);
-          mask-image: radial-gradient(ellipse 70% 85% at 50% 35%, #000 55%, rgba(0,0,0,0.6) 80%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 72% 86% at 50% 34%, #000 52%, rgba(0,0,0,0.55) 76%, transparent 100%);
+          mask-image: radial-gradient(ellipse 72% 86% at 50% 34%, #000 52%, rgba(0,0,0,0.55) 76%, transparent 100%);
   pointer-events: none; z-index: 0; opacity: 0.95;
 }
-.futcard.cos-neon .futcard__photo,
-.futcard.cos-fire .futcard__photo,
-.futcard.cos-ice .futcard__photo,
-.futcard.cos-shadow .futcard__photo { mix-blend-mode: screen; opacity: 0.7; }
-.futcard.cos-chrome .futcard__photo { mix-blend-mode: multiply; opacity: 0.85; }
-.futcard.is-bonus .futcard__photo   { mix-blend-mode: screen; opacity: 0.75; }
+.futcard.cos-neon   .futcard__photo,
+.futcard.cos-fire   .futcard__photo,
+.futcard.cos-ice    .futcard__photo,
+.futcard.cos-shadow .futcard__photo { mix-blend-mode: screen; opacity: 0.72; }
+.futcard.cos-chrome .futcard__photo { mix-blend-mode: multiply; opacity: 0.88; }
+.futcard.is-bonus   .futcard__photo { mix-blend-mode: screen; opacity: 0.75; }
 
-.futcard__head { display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 2; }
+/* ── Typography ───────────────────────────────────────────── */
+.futcard__head { display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 4; }
 .futcard__ovr  { display: flex; flex-direction: column; align-items: center; line-height: 1; }
 .futcard__ovr-num {
   font-family: var(--font-display); font-size: 56px;
   font-weight: 400; letter-spacing: -0.02em; line-height: 0.85;
-  text-shadow: 0 2px 0 rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(0,0,0,0.15);
+  text-shadow: 0 2px 0 rgba(0,0,0,0.22), 0 0 10px rgba(0,0,0,0.2);
 }
 .futcard.size-md .futcard__ovr-num { font-size: 44px; }
 .futcard.size-sm .futcard__ovr-num { font-size: 32px; }
 .futcard__pos {
   font-family: var(--font-display); font-size: 22px;
   margin-top: 4px; opacity: 0.85; letter-spacing: 0.06em;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 0 8px rgba(0,0,0,0.15);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 .futcard.size-md .futcard__pos { font-size: 18px; }
 .futcard.size-sm .futcard__pos { font-size: 14px; }
-.futcard__meta { text-align: right; font-size: 10px; line-height: 1.3; opacity: 0.7; max-width: 55%; }
+.futcard__meta { text-align: right; font-size: 10px; line-height: 1.3; opacity: 0.75; max-width: 55%; position: relative; z-index: 4; }
 .futcard__meta .club { font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
 .futcard__meta .nation { opacity: 0.75; }
 .futcard__portrait-spacer { flex: 1; min-height: 0; }
@@ -1538,12 +1585,12 @@ input { font-family: inherit; }
 .futcard__name {
   font-family: var(--font-display); font-size: 22px;
   letter-spacing: 0.04em; text-align: center; text-transform: uppercase;
-  padding: 4px 0;
-  border-top: 1px solid rgba(255,255,255,0.18);
-  border-bottom: 1px solid rgba(255,255,255,0.18);
-  background: transparent;
+  padding: 5px 0;
+  border-top: 1px solid rgba(255,255,255,0.2);
+  border-bottom: 1px solid rgba(255,255,255,0.2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1;
-  text-shadow: 0 1px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.6);
+  text-shadow: 0 1px 10px rgba(0,0,0,0.95), 0 0 24px rgba(0,0,0,0.6);
+  position: relative; z-index: 2;
 }
 .futcard.size-md .futcard__name { font-size: 18px; }
 .futcard.size-sm .futcard__name { font-size: 14px; }
@@ -1557,122 +1604,279 @@ input { font-family: inherit; }
   font-family: var(--font-display); font-size: 16px; letter-spacing: 0.04em;
   border-radius: 4px; padding: 2px 4px;
   transition: background 0.15s, transform 0.15s;
+  position: relative; z-index: 2;
 }
 .futcard.size-md .futcard__stat { font-size: 14px; }
 .futcard.size-sm .futcard__stat { font-size: 12px; }
-.futcard__stat-val { min-width: 1.6em; text-align: right; font-weight: 400; text-shadow: 0 1px 5px rgba(0,0,0,0.85); }
-.futcard__stat-key { opacity: 0.8; font-size: 0.8em; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
-.futcard__stat.dimmed { opacity: 0.25; pointer-events: none; }
+.futcard__stat-val { min-width: 1.6em; text-align: right; font-weight: 400; text-shadow: 0 1px 6px rgba(0,0,0,0.9); }
+.futcard__stat-key { opacity: 0.78; font-size: 0.8em; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+.futcard__stat.dimmed     { opacity: 0.25; pointer-events: none; }
 .futcard__stat.highlighted { background: rgba(255,255,255,0.18); box-shadow: 0 0 0 1px rgba(255,255,255,0.4) inset; }
-.futcard__stat.clickable { cursor: pointer; }
+.futcard__stat.clickable  { cursor: pointer; }
 .futcard__stat.clickable:hover { background: rgba(0,0,0,0.18); transform: scale(1.05); }
 
 .futcard__cos-badge {
   position: absolute; top: 8px; right: 8px;
   width: 28px; height: 28px; border-radius: 50%;
-  display: grid; place-items: center; z-index: 5; font-size: 14px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.4));
-  border: 1px solid rgba(255,255,255,0.25);
-  backdrop-filter: blur(4px); box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  display: grid; place-items: center; z-index: 6; font-size: 14px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0.4));
+  border: 1px solid rgba(255,255,255,0.22);
+  backdrop-filter: blur(4px); box-shadow: 0 2px 8px rgba(0,0,0,0.5);
 }
 
+/* ── Wrap / ambient glow ─────────────────────────────────── */
 .futcard-wrap {
-  position: relative; display: inline-block; padding: 8px;
+  position: relative; display: inline-block; padding: 10px;
 }
 .futcard-wrap::before {
   content: ''; position: absolute; inset: 0;
   background: radial-gradient(ellipse 80% 60% at 50% 50%, var(--rarity-glow, var(--gold-glow)), transparent 70%);
-  filter: blur(20px); z-index: -1; opacity: 0.7;
+  filter: blur(22px); z-index: -1; opacity: 0.65;
 }
 
-/* slot buttons on card */
+/* ── Slot buttons ────────────────────────────────────────── */
 .futcard__slotbtn {
   margin-top: 8px; border-radius: 8px; padding: 8px 10px;
   font-family: var(--font-ui); font-weight: 800;
   font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
   display: flex; align-items: center; justify-content: space-between;
-  transition: all 0.15s;
+  transition: all 0.15s; position: relative; z-index: 4;
 }
 .futcard__slotbtn--pos { background: rgba(0,30,10,0.6); color: var(--green-1); border: 1px solid rgba(68,255,158,0.4); }
 .futcard__slotbtn--pos:hover { background: rgba(0,60,20,0.8); }
 .futcard__slotbtn--cos { background: rgba(40,10,70,0.7); color: var(--purple-0); border: 1px solid rgba(185,107,255,0.4); }
 .futcard__slotbtn--cos:hover { background: rgba(60,20,100,0.85); }
 
-/* ====== cosmetic overlays ====== */
-.futcard.cos-neon { box-shadow: 0 0 36px var(--cyan-glow); }
-.futcard.cos-neon .futcard__bg { background: linear-gradient(140deg, #0a0a1a 0%, #1a0e2e 50%, #00112a 100%); }
-.futcard.cos-neon::before {
-  content: ''; position: absolute; inset: 0; border-radius: var(--card-radius); padding: 2px;
-  background: conic-gradient(from 0deg, #25e0ff, #b96bff, #25e0ff, #44ff9e, #25e0ff);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-  animation: spin-slow 6s linear infinite; z-index: 4; pointer-events: none;
-}
-.futcard.cos-neon .futcard__inner { color: var(--cyan-0); }
-.futcard.cos-neon .futcard__ovr-num,
-.futcard.cos-neon .futcard__name { color: var(--cyan-1); text-shadow: 0 0 12px var(--cyan-glow); }
 
-.futcard.cos-fire { box-shadow: 0 0 36px rgba(255,140,40,0.6); }
-.futcard.cos-fire .futcard__bg { background: linear-gradient(160deg, #ff7a18 0%, #c20000 60%, #2a0606 100%); }
-.futcard.cos-fire .futcard__inner { color: #ffe5c4; }
-.futcard.cos-fire .futcard__ovr-num { color: #ffd66b; text-shadow: 0 0 16px rgba(255,180,40,0.8); }
+/* ════════════════════════════════════════════════════════════
+   COSMETICS — Premium Material Themes
+   ════════════════════════════════════════════════════════════ */
+
+/* ═══ ⚡ NEON — Electric Circuit ════════════════════════════ */
+.futcard.cos-neon .futcard__bg {
+  background: linear-gradient(145deg, #020610 0%, #06081a 45%, #020410 100%);
+}
+/* Circuit grid lines that drift slowly */
+.futcard.cos-neon .futcard__sheen {
+  background:
+    repeating-linear-gradient(  0deg, transparent, transparent 22px, rgba(37,224,255,0.05) 22px, rgba(37,224,255,0.05) 23px),
+    repeating-linear-gradient( 90deg, transparent, transparent 22px, rgba(37,224,255,0.04) 22px, rgba(37,224,255,0.04) 23px),
+    radial-gradient(ellipse 80% 55% at 50% 15%, rgba(37,224,255,0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 38% at 50% 95%, rgba(185,107,255,0.12) 0%, transparent 60%);
+  mix-blend-mode: normal;
+}
+/* Spinning conic border */
+.futcard.cos-neon::before {
+  content: ''; position: absolute; inset: 0;
+  background: conic-gradient(from 0deg, #25e0ff, #b96bff 25%, #44ff9e 50%, #25e0ff 75%, #b96bff);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  padding: 2px;
+  animation: spin-slow 5s linear infinite; z-index: 6; pointer-events: none;
+}
+/* Electric inner frame */
+.futcard.cos-neon .futcard__frame {
+  box-shadow:
+    inset 0 0 0 2px rgba(37,224,255,0.45),
+    inset 0 0 20px rgba(37,224,255,0.08),
+    inset 0 0 0 4px rgba(0,0,0,0.45);
+}
+.futcard.cos-neon .futcard__inner { color: rgba(200,250,255,0.95); }
+.futcard.cos-neon .futcard__ovr-num,
+.futcard.cos-neon .futcard__name  { color: #25e0ff; text-shadow: 0 0 14px rgba(37,224,255,0.95), 0 0 32px rgba(37,224,255,0.5); }
+
+/* ═══ 🔥 FIRE — Ember & Flame ═══════════════════════════════ */
+.futcard.cos-fire .futcard__bg {
+  background: linear-gradient(170deg, #ff8820 0%, #cc1800 30%, #720800 65%, #180200 100%);
+}
+/* Rising flame glow from bottom */
+.futcard.cos-fire .futcard__sheen {
+  background:
+    radial-gradient(ellipse 100% 50% at 50% 108%, rgba(255,160,20,0.55) 0%, rgba(255,60,0,0.3) 38%, transparent 60%),
+    radial-gradient(ellipse 55% 28% at 25% 100%, rgba(255,220,60,0.4) 0%, transparent 45%),
+    radial-gradient(ellipse 55% 28% at 75% 100%, rgba(255,80,0,0.4) 0%, transparent 45%),
+    radial-gradient(ellipse 75% 38% at 50% 8%, rgba(255,180,60,0.28) 0%, transparent 60%);
+  mix-blend-mode: screen;
+}
+/* Ember edge heat glow */
+.futcard.cos-fire::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255,200,80,0.28) 0%, transparent 20%),
+    linear-gradient(0deg, rgba(255,50,0,0.45) 0%, transparent 35%);
+  z-index: 5; pointer-events: none;
+}
+/* Flame bloom at bottom — replaces the base scrim */
 .futcard.cos-fire::after {
   content: ''; position: absolute; inset: 0;
   background:
-    radial-gradient(circle at 20% 110%, rgba(255,200,80,0.5), transparent 30%),
-    radial-gradient(circle at 80% 120%, rgba(255,100,40,0.5), transparent 30%),
-    radial-gradient(circle at 50% 105%, rgba(255,255,200,0.6), transparent 25%);
-  filter: blur(8px); animation: flame-flicker 1.4s ease-in-out infinite;
-  pointer-events: none; mix-blend-mode: screen;
+    radial-gradient(ellipse 55% 38% at 22% 114%, rgba(255,220,80,0.75) 0%, transparent 50%),
+    radial-gradient(ellipse 45% 32% at 78% 116%, rgba(255,100,20,0.65) 0%, transparent 48%),
+    radial-gradient(ellipse 38% 28% at 50% 109%, rgba(255,250,200,0.85) 0%, transparent 42%);
+  filter: blur(7px);
+  animation: flame-flicker 1.5s ease-in-out infinite alternate;
+  pointer-events: none; mix-blend-mode: screen; z-index: 1;
 }
+/* Molten inner frame */
+.futcard.cos-fire .futcard__frame {
+  box-shadow:
+    inset 0 0 0 2px rgba(255,160,40,0.5),
+    inset 0 0 16px rgba(255,80,0,0.1),
+    inset 0 0 0 4px rgba(0,0,0,0.3);
+}
+.futcard.cos-fire .futcard__inner { color: #ffe8cc; }
+.futcard.cos-fire .futcard__ovr-num { color: #ffd060; text-shadow: 0 0 20px rgba(255,180,0,0.95); }
+.futcard.cos-fire .futcard__name   { text-shadow: 0 0 14px rgba(255,100,0,0.85), 0 1px 4px rgba(0,0,0,0.95); }
 
-.futcard.cos-ice { box-shadow: 0 0 36px rgba(120,200,255,0.55); }
-.futcard.cos-ice .futcard__bg { background: linear-gradient(150deg, #c4e6ff 0%, #4a90c0 40%, #0a2a4a 100%); }
-.futcard.cos-ice .futcard__inner { color: #0a2440; }
-.futcard.cos-ice .futcard__ovr-num,
-.futcard.cos-ice .futcard__name { color: #fff; text-shadow: 0 0 10px rgba(120,220,255,0.7); }
-.futcard.cos-ice .futcard__name { border-top-color: rgba(0,0,0,0.18); border-bottom-color: rgba(0,0,0,0.18); }
-.futcard.cos-ice .futcard__stat-val,
-.futcard.cos-ice .futcard__stat-key { text-shadow: none; }
+/* ═══ ❄️ ICE — Crystal Frost ═══════════════════════════════ */
+.futcard.cos-ice .futcard__bg {
+  background: linear-gradient(148deg, #dff1ff 0%, #96ccee 18%, #3a7eb8 48%, #082848 100%);
+}
+/* Hexagonal frost crystal lattice */
 .futcard.cos-ice::before {
   content: ''; position: absolute; inset: 0;
   background-image:
-    linear-gradient(45deg, transparent 48%, rgba(255,255,255,0.18) 50%, transparent 52%),
-    linear-gradient(-45deg, transparent 48%, rgba(255,255,255,0.12) 50%, transparent 52%);
-  background-size: 16px 16px; pointer-events: none;
+    repeating-linear-gradient( 60deg, transparent, transparent 9px, rgba(255,255,255,0.10) 9px, rgba(255,255,255,0.10) 10px),
+    repeating-linear-gradient(-60deg, transparent, transparent 9px, rgba(255,255,255,0.07) 9px, rgba(255,255,255,0.07) 10px),
+    repeating-linear-gradient(  0deg, transparent, transparent 9px, rgba(200,240,255,0.06) 9px, rgba(200,240,255,0.06) 10px);
+  z-index: 5; pointer-events: none; mix-blend-mode: overlay;
 }
+/* Frosted glass top-half sheen */
+.futcard.cos-ice .futcard__sheen {
+  background:
+    radial-gradient(ellipse 95% 55% at 50% 0%, rgba(255,255,255,0.65) 0%, rgba(220,240,255,0.25) 40%, transparent 68%),
+    radial-gradient(ellipse 65% 40% at 18% 28%, rgba(255,255,255,0.28) 0%, transparent 55%),
+    linear-gradient(155deg, rgba(255,255,255,0.18) 0%, transparent 42%),
+    radial-gradient(ellipse 50% 35% at 76% 80%, rgba(140,200,255,0.28) 0%, transparent 55%);
+  mix-blend-mode: overlay;
+}
+.futcard.cos-ice::after { display: none; }
+/* Crystal inner frame */
+.futcard.cos-ice .futcard__frame {
+  box-shadow:
+    inset 0 0 0 2px rgba(255,255,255,0.52),
+    inset 0 0 20px rgba(180,230,255,0.14),
+    inset 0 0 0 4px rgba(0,40,80,0.08);
+}
+.futcard.cos-ice .futcard__inner { color: #041828; }
+.futcard.cos-ice .futcard__ovr-num,
+.futcard.cos-ice .futcard__name  { color: #041828; text-shadow: 0 0 8px rgba(140,220,255,0.6); }
+.futcard.cos-ice .futcard__name  { border-color: rgba(0,40,80,0.2); }
+.futcard.cos-ice .futcard__stat-val,
+.futcard.cos-ice .futcard__stat-key { text-shadow: none; }
 
-.futcard.cos-chrome { box-shadow: 0 0 36px rgba(200,220,255,0.5); }
+/* ═══ ✨ CHROME — Holographic Foil ══════════════════════════ */
 .futcard.cos-chrome .futcard__bg {
-  background: linear-gradient(135deg, #e8eef8 0%, #aab4c6 25%, #f5f7ff 50%, #5c6477 75%, #e8eef8 100%);
+  background: linear-gradient(130deg, #c0ccdc 0%, #8898b8 22%, #e8eeff 48%, #7080a0 74%, #c0ccdc 100%);
 }
-.futcard.cos-chrome .futcard__inner { color: #161a24; }
-.futcard.cos-chrome .futcard__name { text-shadow: none; border-top-color: rgba(0,0,0,0.2); border-bottom-color: rgba(0,0,0,0.2); }
-.futcard.cos-chrome .futcard__stat-val,
-.futcard.cos-chrome .futcard__stat-key { text-shadow: none; color: #1a1a2a; }
-/* stat-val color is overridden by inline style from getStatColor(isChrome=true) */
+/* Prismatic rainbow foil sweep */
+.futcard.cos-chrome::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(100deg,
+    rgba(255,  0,  0, 0.14)  0%,  5%,
+    rgba(255,120,  0, 0.14)  5%, 10%,
+    rgba(255,220,  0, 0.14) 10%, 15%,
+    rgba(  0,220, 80, 0.14) 15%, 20%,
+    rgba(  0,180,255, 0.14) 20%, 25%,
+    rgba(100,  0,255, 0.14) 25%, 30%,
+    rgba(255,  0,180, 0.14) 30%, 35%,
+    rgba(255,  0,  0, 0.14) 35%, 40%
+  );
+  background-size: 250% 100%;
+  animation: holo-shift 3.5s linear infinite;
+  z-index: 5; pointer-events: none; mix-blend-mode: color;
+}
+/* Metallic shimmer sweep (overrides base ::after scrim) */
 .futcard.cos-chrome::after {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.7) 50%, transparent 70%);
-  transform: translateX(-100%);
-  animation: shimmer-sweep 3s linear infinite; pointer-events: none;
+  background: linear-gradient(108deg, transparent 28%, rgba(255,255,255,0.78) 50%, transparent 72%);
+  animation: shimmer-sweep 2.8s linear infinite;
+  pointer-events: none; z-index: 6; mix-blend-mode: overlay;
+}
+/* Metallic sheen highlights */
+.futcard.cos-chrome .futcard__sheen {
+  background:
+    radial-gradient(ellipse 75% 55% at 30% 20%, rgba(255,255,255,0.38) 0%, transparent 55%),
+    linear-gradient(130deg, rgba(255,255,255,0.18) 0%, transparent 45%),
+    radial-gradient(ellipse 45% 30% at 66% 74%, rgba(180,200,240,0.28) 0%, transparent 50%);
+  mix-blend-mode: overlay;
+}
+/* Brushed silver inner frame */
+.futcard.cos-chrome .futcard__frame {
+  box-shadow:
+    inset 0 0 0 2px rgba(255,255,255,0.58),
+    inset 0 0 10px rgba(200,220,255,0.1),
+    inset 0 0 0 4px rgba(80,100,140,0.12);
+}
+.futcard.cos-chrome .futcard__inner { color: #141828; }
+.futcard.cos-chrome .futcard__name  {
+  color: #1a1a38; text-shadow: none;
+  border-top-color: rgba(0,0,0,0.2); border-bottom-color: rgba(0,0,0,0.2);
+}
+.futcard.cos-chrome .futcard__stat-val,
+.futcard.cos-chrome .futcard__stat-key { text-shadow: none; color: #1a1a2a; }
+/* stat-val color is also overridden by inline style from getStatColor(isChrome=true) */
+.futcard.cos-chrome .futcard__ovr-num {
+  color: #1a1a38;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.7), 0 2px 6px rgba(0,0,0,0.25);
 }
 
-.futcard.cos-shadow { box-shadow: 0 0 36px rgba(120,80,200,0.5); }
-.futcard.cos-shadow .futcard__bg { background: linear-gradient(160deg, #1a0a2e 0%, #050010 60%, #000 100%); }
-.futcard.cos-shadow .futcard__inner { color: #d0b4ff; }
-.futcard.cos-shadow .futcard__ovr-num,
-.futcard.cos-shadow .futcard__name { color: #b96bff; text-shadow: 0 0 16px var(--purple-glow); }
+/* ═══ 🌑 SHADOW — Void & Nebula ═════════════════════════════ */
+.futcard.cos-shadow .futcard__bg {
+  background: linear-gradient(162deg, #0c0018 0%, #040008 50%, #000 100%);
+}
+/* Nebula / deep-space clouds */
 .futcard.cos-shadow::before {
-  content: ''; position: absolute; inset: -2px; border-radius: var(--card-radius); padding: 2px;
-  background: linear-gradient(135deg, var(--purple-1), transparent 50%, var(--purple-2));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude; z-index: 4; pointer-events: none;
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 75% 55% at 28% 28%, rgba(110,0,200,0.35) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 40% at 72% 62%, rgba(200,0,80,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 50% 86%, rgba(60,0,180,0.4) 0%, transparent 65%);
+  z-index: 5; pointer-events: none; mix-blend-mode: screen;
+  animation: nebula-drift 9s ease-in-out infinite alternate;
+}
+/* Star field particles */
+.futcard.cos-shadow .futcard__sheen {
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255,255,255,0.95) 0.5px, transparent 1.5px),
+    radial-gradient(circle at 72%  8%, rgba(255,255,255,0.85) 0.5px, transparent 1.5px),
+    radial-gradient(circle at 42% 22%, rgba(255,255,255,0.75) 0.5px, transparent 1.5px),
+    radial-gradient(circle at 88% 35%, rgba(255,255,255,0.65) 0.5px, transparent 1.5px),
+    radial-gradient(circle at 12% 48%, rgba(255,255,255,0.80) 0.5px, transparent 1.5px),
+    radial-gradient(circle at 58% 55%, rgba(255,255,255,0.60) 0.5px, transparent 1.5px),
+    radial-gradient(circle at 32% 72%, rgba(255,255,255,0.70) 0.5px, transparent 1.5px),
+    radial-gradient(circle at 78% 82%, rgba(255,255,255,0.75) 0.5px, transparent 1.5px),
+    radial-gradient(circle at 22% 88%, rgba(255,255,255,0.55) 0.5px, transparent 1.5px),
+    radial-gradient(circle at 65% 92%, rgba(255,255,255,0.60) 0.5px, transparent 1.5px),
+    radial-gradient(ellipse 70% 55% at 50% 45%, rgba(100,40,200,0.18) 0%, transparent 70%);
+  mix-blend-mode: screen;
+  animation: twinkle 4s ease-in-out infinite alternate;
+}
+/* Void inner frame */
+.futcard.cos-shadow .futcard__frame {
+  box-shadow:
+    inset 0 0 0 2px rgba(185,107,255,0.42),
+    inset 0 0 24px rgba(150,50,220,0.1),
+    inset 0 0 0 4px rgba(0,0,0,0.5);
+}
+.futcard.cos-shadow .futcard__inner { color: #d4b8ff; }
+.futcard.cos-shadow .futcard__ovr-num,
+.futcard.cos-shadow .futcard__name  {
+  color: #c080ff;
+  text-shadow: 0 0 20px rgba(190,90,255,0.95), 0 0 45px rgba(140,0,240,0.6);
 }
 
-.futcard.is-bonus { box-shadow: 0 0 40px var(--purple-glow); }
-.futcard.is-bonus .futcard__bg { background: linear-gradient(150deg, #6b1ed1 0%, #2a0e5a 50%, #0a0418 100%); }
+/* ═══ BONUS CARD ════════════════════════════════════════════ */
+.futcard.is-bonus .futcard__bg    { background: linear-gradient(150deg, #7b22e6 0%, #2a0e5a 50%, #08021c 100%); }
 .futcard.is-bonus .futcard__inner { color: #f0d4ff; }
+.futcard.is-bonus .futcard__ovr-num,
+.futcard.is-bonus .futcard__name  { color: var(--purple-0); text-shadow: 0 0 14px var(--purple-glow); }
+.futcard.is-bonus .futcard__frame {
+  box-shadow:
+    inset 0 0 0 2px rgba(185,107,255,0.35),
+    inset 0 0 0 4px rgba(0,0,0,0.3);
+}
 
 /* Cosmetic offer preview */
 .cos-offer {

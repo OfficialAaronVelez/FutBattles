@@ -9,6 +9,7 @@ import { CardReveal } from './CardReveal'
 import { PackIntro } from './PackIntro'
 import { CosmeticOfferPreview, buildForgePreviewCard } from './CosmeticOfferPreview'
 import { MiniGame } from './MiniGames'
+import { applyStatBonus } from '../../utils/forgeStats'
 
 export function PackOpening() {
   const { packSession } = useGameStore()
@@ -129,7 +130,7 @@ function PackOpeningSession() {
 
     // BOOM: 15% chance of a +4 boost (non-bonus / non-overflow cards only)
     const isBoom   = !shouldReplace && Math.random() < 0.15
-    const finalVal = isBoom ? Math.min(99, value + 4) : value
+    const finalVal = isBoom ? applyStatBonus(value, 4) : value
 
     if (isBoom) {
       setBoom({ stat, fromPlayer: realPlayer.name, original: value, boosted: finalVal })

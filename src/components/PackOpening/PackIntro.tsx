@@ -13,6 +13,7 @@ const PACK_TIERS: Record<PackRarity, { label: string; crest: string }> = {
   bronze: { label: 'BRONZE', crest: 'B' },
   silver: { label: 'SILVER', crest: 'S' },
   gold:   { label: 'GOLD',   crest: 'G' },
+  icon:   { label: 'ICON',   crest: '★' },
 }
 
 export function PackIntro({ rarity, playerName, costPaid, onOpen, onCancel }: PackIntroProps) {
@@ -38,6 +39,7 @@ export function PackIntro({ rarity, playerName, costPaid, onOpen, onCancel }: Pa
     'transform 0.15s ease-out'
 
   const ringColor =
+    rarity === 'icon'   ? '#f5d76e'        :
     rarity === 'gold'   ? 'var(--gold-1)'   :
     rarity === 'silver' ? 'var(--silver-1)' :
     'var(--bronze-1)'
@@ -59,6 +61,7 @@ export function PackIntro({ rarity, playerName, costPaid, onOpen, onCancel }: Pa
         position: 'absolute', top: '50%', left: '50%',
         width: 400, height: 400, transform: 'translate(-50%, -50%)',
         background: `radial-gradient(circle, ${
+          rarity === 'icon'   ? 'rgba(255,230,100,0.18)' :
           rarity === 'gold'   ? 'rgba(255,215,100,0.15)' :
           rarity === 'silver' ? 'rgba(220,230,245,0.10)' :
                                 'rgba(255,150,80,0.12)'

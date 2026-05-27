@@ -1,25 +1,22 @@
 import type {
   Team7v7, FormationSlot,
-  BattleMatchup, BattleRound,
+  BattleMatchup, BattleRound, RollBreakdownEntry,
   RealPlayer, Formation7v7, UserCard,
-  CreateDuel,
+  CreateDuel, TacticType, CardTrait,
 } from '../types'
 import { FORMATION_CONFIGS } from '../types'
 import { PLAYERS } from '../data/players'
 
 // ─── Constants ───────────────────────────────────────────────────
-export const TOTAL_ROUNDS        = 5
-const MOMENTUM_THRESHOLD  = 3   // consecutive scoring attacks needed
-const MOMENTUM_BONUS      = 12  // flat bonus to attack roll at threshold
-const CREATION_BONUS      = 10  // bonus for winning the PAS duel
-const RAND_ATK            = 22  // attack roll noise ceiling (raised from 14 — less deterministic)
-const RAND_DEF            = 14  // defence roll noise ceiling (raised from 12)
-const RAND_LM             = 12  // last-man roll noise ceiling (raised from 10)
-const RAND_PAS            = 18  // PAS duel noise ceiling
-// Fatigue: penalty per repeated use of the same attacker in a single match
-// 1st use: 0, 2nd: -10, 3rd: -20, 4th+: -30 (capped)
-const FATIGUE_PER_USE     = 10
-const FATIGUE_MAX_USES    = 3   // penalty caps at 3 stacked uses
+export const TOTAL_ROUNDS  = 5
+const MOMENTUM_THRESHOLD   = 3   // consecutive scoring attacks needed
+const MOMENTUM_BONUS       = 12  // flat bonus to attack roll at threshold
+const CREATION_BONUS       = 10  // bonus for winning the PAS duel
+const MARK_PENALTY         = 12  // extra OOP% applied when player uses same attacker twice in a row
+const RAND_ATK             = 18  // attack roll noise (moderate variance)
+const RAND_DEF             = 12  // defence roll noise
+const RAND_LM              = 10  // last-man roll noise
+const RAND_PAS             = 10  // PAS duel noise (low — makes PAS stat decisive)
 
 // ─── Position helpers ────────────────────────────────────────────
 type PosGroup = 'attack' | 'midfield' | 'defense'
@@ -64,6 +61,57 @@ export function oopPenaltyPct(cardPos: string | null | undefined, slotRow: numbe
 
   // Adjacent (one step away)
   return 12
+}
+
+// ─── Defensive shape bonus ───────────────────────────────────────
+/**
+ * Computes the team's defensive shape score from how well row-1 cards
+ * fit their natural position group.
+ *   DEF group card in row 1 → +4 pts
+ *   MID group card in row 1 →  0 pts
+ *   ATK group card in row 1 → -6 pts
+ * Result clamped to [-12, +12] and added flat to the defender's roll.
+ */
+export function calcShapeBonus(slots: FormationSlot[]): number {
+  let score = 0
+  for (const s of slots) {
+    if (s.row !== 1 || !s.card) continue
+    const g = posGroup(s.card.position)
+    if (g === 'defense')   score += 4
+    else if (g === 'attack') score -= 6
+    // midfield = 0
+  }
+  return Math.max(-12, Math.min(12, score))
+}
+
+// ─── Player traits ───────────────────────────────────────────────
+/**
+ * Returns the passive trait for a UserCard, derived purely from its
+ * existing stats and position — no new data needed.
+ *
+ *  Clinical   : SHO ≥ 90 + ATK pos  → +5 to shot roll when beating first defender
+ *  Engine     : PAS ≥ 88 + MID pos  → creation duel win gives +15 instead of +10
+ *  Brick Wall : DEF ≥ 88 + DEF pos  → last-man gets +3 DEF when this card defends
+ *  Speedster  : PAC ≥ 90 + wide pos → OOP penalty halved when in MID row
+ *  Enforcer   : PHY ≥ 88 + CB/CDM   → +5 to last-man PHY component
+ */
+export function getCardTrait(card: UserCard): CardTrait | null {
+  const s   = card.stats
+  const pos = card.position
+  if (!pos) return null
+
+  if ((s.SHO ?? 0) >= 90 && ATK_POS.has(pos))
+    return { type: 'clinical', label: 'Clinical' }
+  if ((s.PAS ?? 0) >= 88 && MID_POS.has(pos))
+    return { type: 'engine', label: 'Engine' }
+  if ((s.DEF ?? 0) >= 88 && DEF_POS.has(pos))
+    return { type: 'brick-wall', label: 'Brick Wall' }
+  if ((s.PAC ?? 0) >= 90 && ['LW', 'RW', 'LM', 'RM'].includes(pos))
+    return { type: 'speedster', label: 'Speedster' }
+  if ((s.PHY ?? 0) >= 88 && ['CB', 'CDM'].includes(pos))
+    return { type: 'enforcer', label: 'Enforcer' }
+
+  return null
 }
 
 // ─── Chemistry ───────────────────────────────────────────────────
@@ -128,13 +176,16 @@ function lastManRollFn(s: CardStats): number {
 }
 
 function pasRoll(s: CardStats): number {
-  return Math.round(s.PAS * 0.85 + rand(0, RAND_PAS))
+  return Math.round(s.PAS * 0.90 + rand(0, RAND_PAS))
 }
 
 // ─── Create Duel (PAS battle before each round) ──────────────────
-function bestPasser(slots: FormationSlot[]): CardStats {
-  const mid  = slots.filter(s => s.row === 2 && s.card)
-  const pool = mid.length ? mid : slots.filter(s => s.card && s.row > 0)
+// excludeIds: cards already assigned to attack/defense roles this round
+function bestPasser(slots: FormationSlot[], excludeIds: string[] = []): CardStats {
+  const mid  = slots.filter(s => s.row === 2 && s.card && !excludeIds.includes(s.card.id))
+  const pool = mid.length
+    ? mid
+    : slots.filter(s => s.card && !excludeIds.includes(s.card.id))
   if (!pool.length) return { id:'_', name:'Midfielder', PAC:70,SHO:70,PAS:72,DRI:70,DEF:65,PHY:70 }
   return toCardStats(pool.reduce((best, s) => {
     const pas = s.card!.stats.PAS ?? 70
@@ -147,10 +198,10 @@ function bestAiPasser(aiPlayers: RealPlayer[]): CardStats {
   return sorted.length ? toCardStats(sorted[0]) : { id:'_', name:'AI Mid', PAC:70,SHO:70,PAS:72,DRI:70,DEF:65,PHY:70 }
 }
 
-function resolveCreateDuel(playerSlots: FormationSlot[], aiPlayers: RealPlayer[]): CreateDuel {
-  const pm = bestPasser(playerSlots)
+function resolveCreateDuel(playerSlots: FormationSlot[], aiPlayers: RealPlayer[], excludeIds: string[] = [], pressBonus = 0): CreateDuel {
+  const pm = bestPasser(playerSlots, excludeIds)
   const am = bestAiPasser(aiPlayers)
-  const pr = pasRoll(pm)
+  const pr = pasRoll(pm) + pressBonus
   const ar = pasRoll(am)
   return { playerName: pm.name, playerPas: pm.PAS, playerRoll: pr,
            aiName:     am.name, aiPas:     am.PAS, aiRoll:     ar,
@@ -159,23 +210,88 @@ function resolveCreateDuel(playerSlots: FormationSlot[], aiPlayers: RealPlayer[]
 
 // ─── Single matchup ──────────────────────────────────────────────
 function resolveMatchup(
-  attBase:       CardStats,
-  defBase:       CardStats,
-  lastManBase:   CardStats,
-  oopPct:        number,
-  chemBonus:     number,
-  momBonus:      number,
-  createBonus:   number,
-  createDuel:    CreateDuel | null,
+  attBase:         CardStats,
+  defBase:         CardStats,
+  lastManBase:     CardStats,
+  oopPct:          number,
+  chemBonus:       number,
+  momBonus:        number,
+  createBonus:     number,
+  createDuel:      CreateDuel | null,
+  atkFlatBonus:    number = 0,       // tactic / trait flat adjustments to attack roll
+  defFlatBonus:    number = 0,       // tactic flat adjustments to defender roll
+  lastManFlatBonus: number = 0,      // tactic / trait flat adjustments to last-man roll
+  shapeBonus:      number = 0,       // defensive shape score (added to defender roll)
+  attackerTrait:   CardTrait | null = null,
+  defenderTrait:   CardTrait | null = null,
+  tacticNote:      string | null = null,
 ): BattleMatchup {
   const att = applyModifiers(attBase, oopPct, chemBonus)
 
-  const aRoll  = atkRoll(att, momBonus, createBonus)
-  const dRoll  = defRoll(defBase)
-  const beatD  = aRoll > dRoll
-  const lmR    = beatD ? lastManRollFn(lastManBase) : 0
-  const shotR  = beatD ? atkRoll(att, 0, 0) : 0
-  const scored = beatD && shotR > lmR
+  const aBaseRoll = atkRoll(att, momBonus, createBonus) + atkFlatBonus
+  const dBaseRoll = defRoll(defBase) + defFlatBonus + shapeBonus
+  const beatD     = aBaseRoll > dBaseRoll
+
+  // Clinical trait: +5 shot bonus when attacker beats first defender
+  const clinicalFires = beatD && attackerTrait?.type === 'clinical'
+
+  // Last-man rolls — apply trait bonuses if applicable
+  let lmEffDef = lastManBase.DEF
+  let lmEffPhy = lastManBase.PHY
+  if (defenderTrait?.type === 'brick-wall') lmEffDef += 3   // Brick Wall
+  if (defenderTrait?.type === 'enforcer')   lmEffPhy += 5   // Enforcer
+
+  const lmBaseRoll  = beatD ? Math.round(lmEffDef * 0.65 + lmEffPhy * 0.35 + rand(0, RAND_LM)) + lastManFlatBonus : 0
+  const shotR       = beatD ? atkRoll(att, 0, clinicalFires ? 5 : 0) : 0
+  const scored      = beatD && shotR > lmBaseRoll
+
+  const traitFired = clinicalFires
+    ? '⚡ Clinical — +5 shot bonus'
+    : (defenderTrait?.type === 'brick-wall' && beatD)
+    ? '🧱 Brick Wall — last-man +3 DEF'
+    : (defenderTrait?.type === 'enforcer' && beatD)
+    ? '💪 Enforcer — last-man +5 PHY'
+    : null
+
+  // ── Roll breakdowns (for in-game transparency display) ──────────
+  // Short tactic label: strip everything after " — "
+  const tacticLabel = tacticNote ? tacticNote.split(' — ')[0] : 'Tactic'
+
+  // ATK breakdown
+  const atkStatBase  = Math.round(att.PAC * 0.30 + att.SHO * 0.45 + att.DRI * 0.25)
+  const atkBonuses: RollBreakdownEntry[] = []
+  if (momBonus > 0)       atkBonuses.push({ label: '🔥 Momentum', value: momBonus })
+  if (createBonus > 0)    atkBonuses.push({ label: 'Possession', value: createBonus })
+  if (createBonus < 0)    atkBonuses.push({ label: 'Counter loss', value: createBonus })
+  if (atkFlatBonus !== 0) atkBonuses.push({ label: tacticLabel, value: atkFlatBonus })
+  const atkBonusSum = atkBonuses.reduce((s, b) => s + b.value, 0)
+  const atkDice     = aBaseRoll - atkStatBase - atkBonusSum
+
+  // DEF breakdown
+  const defStatBase  = Math.round(defBase.DEF * 0.60 + defBase.PHY * 0.40)
+  const defBonuses: RollBreakdownEntry[] = []
+  if (shapeBonus !== 0)    defBonuses.push({ label: shapeBonus > 0 ? 'Shape ↑' : 'Shape ↓', value: shapeBonus })
+  if (defFlatBonus !== 0)  defBonuses.push({ label: tacticLabel, value: defFlatBonus })
+  const defBonusSum = defBonuses.reduce((s, b) => s + b.value, 0)
+  const defDice     = dBaseRoll - defStatBase - defBonusSum
+
+  // LM breakdown — null when defender wasn't beaten
+  const lmPureBase  = Math.round(lastManBase.DEF * 0.65 + lastManBase.PHY * 0.35)
+  const lmTraitBon  = Math.round(lmEffDef * 0.65 + lmEffPhy * 0.35) - lmPureBase
+  const lmBonuses: RollBreakdownEntry[] = []
+  if (beatD) {
+    if (lmTraitBon !== 0)       lmBonuses.push({ label: defenderTrait?.type === 'brick-wall' ? 'Brick Wall' : 'Enforcer', value: lmTraitBon })
+    if (lastManFlatBonus !== 0) lmBonuses.push({ label: tacticLabel, value: lastManFlatBonus })
+  }
+  const lmBonusSum = lmBonuses.reduce((s, b) => s + b.value, 0)
+  const lmDice     = beatD ? lmBaseRoll - lmPureBase - lmBonusSum : 0
+
+  // SHOT breakdown — null when defender wasn't beaten
+  // shotR = atkRoll(att, 0, clinicalBonus) — uses SAME att stats, fresh dice
+  const shotBonuses: RollBreakdownEntry[] = []
+  if (clinicalFires) shotBonuses.push({ label: '⚡ Clinical', value: 5 })
+  const shotBonusSum = shotBonuses.reduce((s, b) => s + b.value, 0)
+  const shotDice     = beatD ? shotR - atkStatBase - shotBonusSum : 0
 
   return {
     attacker: {
@@ -187,10 +303,17 @@ function resolveMatchup(
     defender: { name: defBase.name, def: defBase.DEF, phy: defBase.PHY },
     lastMan:  { name: lastManBase.name, def: lastManBase.DEF, phy: lastManBase.PHY },
     createDuel,
-    attackerRoll: aRoll,
-    defenderRoll: dRoll,
-    lastManRoll:  lmR,
+    attackerRoll: aBaseRoll,
+    defenderRoll: dBaseRoll,
+    lastManRoll:  lmBaseRoll,
+    shotRoll:     shotR,
     scored,
+    traitFired:   traitFired ?? null,
+    tacticNote:   tacticNote ?? null,
+    atkBreakdown: { statBase: atkStatBase, bonuses: atkBonuses, dice: atkDice },
+    defBreakdown: { statBase: defStatBase, bonuses: defBonuses, dice: defDice },
+    lmBreakdown:  beatD ? { statBase: lmPureBase, bonuses: lmBonuses, dice: lmDice } : null,
+    shotBreakdown: beatD ? { statBase: atkStatBase, bonuses: shotBonuses, dice: shotDice } : null,
   }
 }
 
@@ -203,9 +326,12 @@ function aiPickAttacker(aiPlayers: RealPlayer[]): RealPlayer {
 
 function aiPickDefender(aiPlayers: RealPlayer[]): RealPlayer {
   const def = aiPlayers.filter(p => DEF_POS.has(p.position))
-  return def.length
-    ? def[rand(0, def.length - 1)]
-    : aiPlayers[0]
+  const pool = def.length ? def : aiPlayers
+  // Always use best defender by DEF+PHY — AI plays smart
+  return pool.reduce((best, p) => {
+    const v = (p.stats.DEF ?? 0) + (p.stats.PHY ?? 0)
+    return v > ((best.stats.DEF ?? 0) + (best.stats.PHY ?? 0)) ? p : best
+  }, pool[0])
 }
 
 /**
@@ -258,41 +384,114 @@ function playerBestDefender(slots: FormationSlot[], chemBonuses: Map<string, num
 }
 
 // ─── Public: resolve one round ───────────────────────────────────
+// playerAttackerId : card the player chose to attack with
+// playerDefenderId : card the player chose to defend with ('' = auto-pick best)
+// lastAttackerId   : attacker used LAST round — triggers man-marking if same
+// tactic           : tactic selected for this round (null = balanced)
 export function resolveRound(
   playerAttackerId: string,
+  playerDefenderId: string,
   roundNum:         number,
   playerTeam:       Team7v7,
   aiPlayers:        RealPlayer[],
   momentumPlayer:   number,
   momentumAi:       number,
-  attackerUseCount  = 0,   // how many times this card has been used already this match
+  lastAttackerId:   string | null = null,
+  tactic:           TacticType | null = null,
 ): BattleRound {
   const chemBonuses = computeChemBonuses(playerTeam.slots)
 
-  // ── Player attack ──
+  // ── Player attacker slot & traits ──
   const pAtkSlot = playerTeam.slots.find(s => s.card?.id === playerAttackerId)
-  if (!pAtkSlot?.card) throw new Error('pickBattleAttacker: card not found')
+  if (!pAtkSlot?.card) throw new Error('resolveRound: attacker card not found')
 
   const pAtkBase  = toCardStats(pAtkSlot.card)
-  const pOopPct   = oopPenaltyPct(pAtkSlot.card.position, pAtkSlot.row)
   const pChem     = chemBonuses.get(pAtkSlot.card.id) ?? 0
   const pMomBonus = momentumPlayer >= MOMENTUM_THRESHOLD ? MOMENTUM_BONUS : 0
 
-  // Fatigue penalty — discourages spamming the same attacker every round
-  const fatigue      = Math.min(attackerUseCount, FATIGUE_MAX_USES) * FATIGUE_PER_USE
-  // Net bonus: momentum can partially cancel fatigue; fatigue can go negative (net penalty)
-  const pNetMomBonus = pMomBonus - fatigue
+  // OOP penalty restored + man-marking on top
+  const pOopPct   = oopPenaltyPct(pAtkSlot.card.position, pAtkSlot.row)
+  const isMarked  = lastAttackerId !== null && lastAttackerId === playerAttackerId
+  const markPct   = isMarked ? MARK_PENALTY : 0
 
-  const createDuel     = resolveCreateDuel(playerTeam.slots, aiPlayers)
-  const pCreateBonus   = createDuel.playerWon ? CREATION_BONUS : 0
+  const pAtkTrait = getCardTrait(pAtkSlot.card)
+  // Speedster: halve OOP in MID row (only the OOP portion, not the mark)
+  const speedsterActive = pAtkTrait?.type === 'speedster' && pAtkSlot.row === 2
+  const effectiveOop = speedsterActive
+    ? Math.max(0, Math.round(pOopPct / 2)) + markPct
+    : pOopPct + markPct
 
+  // ── Player defender slot & traits ──
+  const pDefSlot   = playerTeam.slots.find(s => s.card?.id === playerDefenderId)
+  const pDefTrait  = pDefSlot?.card ? getCardTrait(pDefSlot.card) : null
+  const pDefStats  = pDefSlot?.card
+    ? applyModifiers(
+        toCardStats(pDefSlot.card),
+        oopPenaltyPct(pDefSlot.card.position, pDefSlot.row),
+        chemBonuses.get(pDefSlot.card.id) ?? 0,
+      )
+    : playerBestDefender(playerTeam.slots, chemBonuses)   // fallback for simulateBattle
+
+  const pLastManStats = getLastManStats(playerTeam.slots)
+
+  // ── Shape bonus (adds to defender's roll in AI attack) ──
+  const shapeBonus = calcShapeBonus(playerTeam.slots)
+
+  // ── Engine trait on best midfielder (creation duel) ──
+  const creationExcludeIds = [playerAttackerId, playerDefenderId]
+  const passerSlot = playerTeam.slots.find(s => {
+    if (!s.card || creationExcludeIds.includes(s.card.id)) return false
+    if (s.row === 2) return true
+    return false
+  }) ?? playerTeam.slots.find(s => s.card && !creationExcludeIds.includes(s.card.id))
+  const passerTrait    = passerSlot?.card ? getCardTrait(passerSlot.card) : null
+  const engineActive   = passerTrait?.type === 'engine'
+  const engineBonus    = engineActive ? 5 : 0   // +5 extra on creation win → 15 total
+
+  // ── Tactic modifiers ──
+  const pressBonus        = tactic === 'press'   ? 5  : 0   // +5 to player PAS roll
+  const parkAtkPenalty    = tactic === 'park'    ? -10 : 0  // -10 flat to player attack roll
+  const parkDefBonus      = tactic === 'park'    ? 8  : 0   // +8 to player defender & last-man
+  const pressDefPenalty   = tactic === 'press'   ? -5 : 0   // player DEF -5 when AI attacks (caught high)
+
+  // ── Creation duel ──
+  const createDuel = resolveCreateDuel(
+    playerTeam.slots, aiPlayers, creationExcludeIds, pressBonus,
+  )
+
+  // Counter tactic: creation win = +18; creation loss = -5 (instead of +10 / 0)
+  const counterWinBonus = (tactic === 'counter' && createDuel.playerWon) ? 8 : 0
+  const counterLossPenalty = (tactic === 'counter' && !createDuel.playerWon) ? -5 : 0
+  const pCreateBonus = createDuel.playerWon
+    ? CREATION_BONUS + engineBonus + counterWinBonus
+    : counterLossPenalty
+
+  // ── Tactic note for animation display ──
+  let pAtkTacticNote: string | null = null
+  let pDefTacticNote: string | null = null
+  if (tactic === 'park')   pAtkTacticNote = '🚌 Park the Bus — ATK −10'
+  if (tactic === 'park')   pDefTacticNote = '🚌 Park the Bus — DEF +8'
+  if (tactic === 'press' && createDuel.playerWon)   pAtkTacticNote = '📣 Press High — +5 possession'
+  if (tactic === 'press' && !createDuel.playerWon)  pDefTacticNote = '📣 Press High — DEF −5 (exposed)'
+  if (tactic === 'counter' && createDuel.playerWon) pAtkTacticNote = '⚡ Counter — +8 ATK on transition'
+  if (tactic === 'counter' && !createDuel.playerWon) pAtkTacticNote = '⚡ Counter — −5 ATK (no counter chance)'
+
+  // ── Player attack ──
   const aiDefBase     = toCardStats(aiPickDefender(aiPlayers))
   const aiLastManBase = getLastManStats([], aiPlayers)
 
   const playerAttack = resolveMatchup(
     pAtkBase, aiDefBase, aiLastManBase,
-    pOopPct, pChem, pNetMomBonus, pCreateBonus,
+    effectiveOop,
+    pChem, pMomBonus, pCreateBonus,
     createDuel,
+    parkAtkPenalty,       // atkFlatBonus
+    0,                    // defFlatBonus (AI defender — not affected by player tactic)
+    0,                    // lastManFlatBonus
+    0,                    // shapeBonus (shape is for the player's defense)
+    pAtkTrait,            // attackerTrait
+    null,                 // defenderTrait (no player defender here)
+    pAtkTacticNote,
   )
 
   // ── AI attack ──
@@ -300,13 +499,20 @@ export function resolveRound(
   const aiMomBonus    = momentumAi >= MOMENTUM_THRESHOLD ? MOMENTUM_BONUS : 0
   const aiCreateBonus = createDuel.playerWon ? 0 : CREATION_BONUS
 
-  const pDefStats     = playerBestDefender(playerTeam.slots, chemBonuses)
-  const pLastManStats = getLastManStats(playerTeam.slots)
-
   const aiAttack = resolveMatchup(
     aiAtkBase, pDefStats, pLastManStats,
-    0, 0, aiMomBonus, aiCreateBonus,
+    0,         // AI has no OOP in this model
+    0,         // no chem for AI
+    aiMomBonus,
+    aiCreateBonus,
     null,
+    0,                                    // atkFlatBonus
+    parkDefBonus + pressDefPenalty,       // defFlatBonus: park +8, press -5
+    parkDefBonus,                         // lastManFlatBonus: park +8
+    shapeBonus,                           // shapeBonus from formation
+    null,                                 // attackerTrait (AI attacker has no trait)
+    pDefTrait,                            // defenderTrait: player's defender trait
+    pDefTacticNote,
   )
 
   // ── Momentum update ──
@@ -387,9 +593,15 @@ export function simulateBattle(playerTeam: Team7v7, aiPlayers: RealPlayer[]) {
   let momP = 0, momA = 0
   const rounds: BattleRound[] = []
 
+  const defSlots = playerTeam.slots.filter(s => s.row === 1 && s.card)
   for (let i = 1; i <= TOTAL_ROUNDS; i++) {
-    const slot  = attackerSlots[rand(0, attackerSlots.length - 1)]
-    const round = resolveRound(slot?.card?.id ?? '', i, playerTeam, aiPlayers, momP, momA)
+    const atkSlot = attackerSlots[rand(0, attackerSlots.length - 1)]
+    const defSlot = defSlots[rand(0, defSlots.length - 1)]
+    const round = resolveRound(
+      atkSlot?.card?.id ?? '',
+      defSlot?.card?.id ?? '',
+      i, playerTeam, aiPlayers, momP, momA,
+    )
     rounds.push(round)
     if (round.playerScored) playerGoals++
     if (round.aiScored)     aiGoals++

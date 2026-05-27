@@ -167,7 +167,7 @@ export default function App() {
   const [gameReady, setGameReady]   = useState(false)
   const [tab, setTab]             = useState<Tab>(initialTab)
   const [battleSub, setBattleSub] = useState<BattleSubTab>('play')
-  const { roster, packSession, battle, coins, battleHistory, startBattle, resetBattle, tutorialDone, dailyMissions, claimedBattleRewards } = useGameStore()
+  const { roster, packSession, battle, coins, battleHistory, startBattle, resetBattle, tutorialDone, storeHydrated, dailyMissions, claimedBattleRewards } = useGameStore()
 
   const userId = session?.user?.id ?? null
 
@@ -210,7 +210,10 @@ export default function App() {
     })
 
     return () => { cancelled = true }
-  }, [session === undefined ? 'loading' : userId])
+  // Also depend on storeHydrated: if the store module is replaced during Vite HMR
+  // (new store instance, storeHydrated resets to false) this dep change will trigger
+  // the effect to re-run and re-initialise, preventing the tutorial from flashing.
+  }, [session === undefined ? 'loading' : userId, storeHydrated ? 'hydrated' : 'unhydrated'])
 
   // Still loading initial session — show nothing (avoids flash)
   if (session === undefined) return null
@@ -225,8 +228,11 @@ export default function App() {
     )
   }
 
-  // Wait until this account's saved progress has been loaded
-  if (!gameReady) {
+  // Wait until this account's saved progress has been loaded AND the store has
+  // been rehydrated from localStorage. The storeHydrated flag resets to false
+  // whenever the Zustand store module is recreated (Vite HMR), so both checks
+  // are needed to prevent the tutorial from flashing on every hot reload.
+  if (!gameReady || !storeHydrated) {
     return <BackgroundMusic />
   }
 
@@ -245,7 +251,7 @@ export default function App() {
         {/* Underlying game content rendered during tutorial steps 1 (pack) & 3 (battle) */}
         <div className="layout layout--immersive">
           <div className="app-shell">
-            <main className="tutorial-main" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <main className="tutorial-main" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: battle ? 'auto' : 'hidden' }}>
               {packSession && <PackOpening />}
               {battle && battle.phase !== 'team-select' && <BattleScreen />}
             </main>
@@ -258,7 +264,7 @@ export default function App() {
     )
   }
 
-  const isTCGAdmin  = import.meta.env.DEV && session.user.email === 'aaronvelezcoronado@gmail.com'
+  const isTCGAdmin  = false  // Hidden — TCG will be revisited later
   const inBattle    = battle !== null
   const isImmersive = !!packSession || (inBattle && battle?.phase !== 'team-select')
 
@@ -423,7 +429,7 @@ export default function App() {
             </div>
           )}
 
-          <main className={packSession ? 'main--forge' : undefined} style={{ flex: 1 }}>
+          <main className={packSession ? 'main--forge' : undefined} style={{ flex: 1, overflowY: packSession ? undefined : 'auto' }}>
             {packSession ? (
               <PackOpening />
             ) : tab === 'home' ? (
@@ -779,7 +785,7 @@ function BattleTab({
   const showSubTabs = !inBattle || battlePhase === 'team-select'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
       {showSubTabs && (
         <div style={{ display: 'flex', gap: 6, padding: '12px 16px 0', borderBottom: '1px solid var(--line)' }}>
           {(['play', 'history'] as const).map(s => (

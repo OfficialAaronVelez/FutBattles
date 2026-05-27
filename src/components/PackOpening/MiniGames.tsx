@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { RealPlayer, StatKey, MiniGameType } from '../../types'
 import { STAT_KEYS } from '../../types'
+import { applyMultBoost, applyStatBonus, applyStatDelta, statHeadroom } from '../../utils/forgeStats'
 
 // ─── Accent colours ───────────────────────────────────────────────────────────
 const GOLD   = '#f5b327'
@@ -192,10 +193,6 @@ function formatModifier(mod: number): string {
   return mod > 0 ? `+${mod}` : `${mod}`
 }
 
-function clampStat(val: number): number {
-  return Math.max(40, Math.min(99, val))
-}
-
 function SlotsGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
   const available = STAT_KEYS.filter(s => !takenStats.includes(s))
   const modifierMode = available.length === 1
@@ -288,7 +285,7 @@ function SlotsModifierMode({
         const bonus = 4
         const total = matchResult.mod + bonus
         return {
-          value: clampStat(base + total),
+          value: applyStatDelta(base, total),
           bonus: total,
           label: '🎰 JACKPOT!',
           color: GOLD,
@@ -298,7 +295,7 @@ function SlotsModifierMode({
         const bonus = 2
         const total = matchResult.mod + bonus
         return {
-          value: clampStat(base + total),
+          value: applyStatDelta(base, total),
           bonus: total,
           label: '✨ MATCH! +2',
           color: GREEN,
@@ -307,7 +304,7 @@ function SlotsModifierMode({
       case 'miss': {
         const total = matchResult.mod
         return {
-          value: clampStat(base + total),
+          value: applyStatDelta(base, total),
           bonus: total,
           label: total >= 0 ? 'Middle reel' : '❌ NO MATCH',
           color: total > 0 ? GREEN : total < 0 ? RED : 'rgba(255,255,255,0.5)',
@@ -437,8 +434,14 @@ function SlotsStatMode({
 
   const finalResult = matchResult ? (() => {
     switch (matchResult.kind) {
-      case 'triple': return { stat: matchResult.stat, value: Math.min(99, card.stats[matchResult.stat] + 8), bonus: 8, label: '🎰 JACKPOT! +8', color: GOLD }
-      case 'double': return { stat: matchResult.stat, value: Math.min(99, card.stats[matchResult.stat] + 4), bonus: 4, label: '✨ MATCH! +4', color: GREEN }
+      case 'triple': {
+        const bonus = Math.min(8, statHeadroom(card.stats[matchResult.stat]))
+        return { stat: matchResult.stat, value: applyStatBonus(card.stats[matchResult.stat], bonus), bonus, label: '🎰 JACKPOT! +8', color: GOLD }
+      }
+      case 'double': {
+        const bonus = Math.min(4, statHeadroom(card.stats[matchResult.stat]))
+        return { stat: matchResult.stat, value: applyStatBonus(card.stats[matchResult.stat], bonus), bonus, label: '✨ MATCH! +4', color: GREEN }
+      }
       case 'miss':   return { stat: matchResult.stat, value: card.stats[matchResult.stat], bonus: 0, label: '❌ NO MATCH', color: RED }
     }
   })() : null
@@ -519,8 +522,8 @@ function MinefieldGame({ card, takenStats, onComplete, compact }: MiniGameProps)
   }
 
   const base     = card.stats[pickedStat]
-  const capBonus = Math.min(20, Math.max(0, 99 - base))   // hard cap — no trivial 99s
-  const current  = Math.min(99, base + accumulated)
+  const capBonus = Math.min(20, statHeadroom(base))
+  const current  = applyStatBonus(base, accumulated)
 
   function revealTile(idx: number) {
     if (done || tiles[idx].revealed) return
@@ -605,7 +608,7 @@ function PushGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
   }
 
   const base      = card.stats[pickedStat]
-  const displayed = lockedIn !== null ? lockedIn : Math.min(99, Math.round(base * mult))
+  const displayed = lockedIn !== null ? lockedIn : applyMultBoost(base, mult)
   const bustVal   = Math.max(1, Math.round(base * 0.70))
   const dangerZone = mult > 1.5
   const multColor = bust ? RED : mult > 2.0 ? RED : dangerZone ? ORANGE : mult > 1.2 ? GOLD : GREEN
@@ -638,7 +641,7 @@ function PushGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
         <GameLockInBtn
           value={displayed}
           onClick={() => {
-            const val = Math.min(99, Math.round(base * multRef.current))
+            const val = applyMultBoost(base, multRef.current)
             lockedInRef.current = val
             setLockedIn(val)
             setRunning(false)
@@ -691,7 +694,7 @@ function DoubleOrNothingGame({ card, takenStats, onComplete, compact }: MiniGame
       setFlipResult(result)
       setFlipHistory(prev => [...prev, result])
       setValue(prev => won
-        ? Math.min(99, Math.round(prev * tier.winMult))
+        ? applyMultBoost(prev, tier.winMult)
         : Math.max(1,  Math.round(prev * tier.lossMult))
       )
       setFlipCount(c => c + 1)
@@ -806,7 +809,7 @@ function PressureDropGame({ card, takenStats, onComplete, compact }: MiniGamePro
       const shuffled = [...poolOrAll].sort(() => Math.random()-0.5)
       for (const s of shuffled) {
         const delta = Math.floor(Math.random()*13)-6
-        items.push({ stat:s, value:Math.max(40,Math.min(99,card.stats[s]+delta)) })
+        items.push({ stat:s, value: applyStatDelta(card.stats[s], delta) })
       }
     }
     return items
@@ -887,7 +890,8 @@ function ChamberGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
   }
 
   const base    = card.stats[pickedStat]
-  const current = Math.min(99, base + accumulated)
+  const capBonus = statHeadroom(base)
+  const current = applyStatBonus(base, accumulated)
   // how many unpulled chambers remain (including the bullet)
   const unpulled = revealed.filter(r => !r).length
 
@@ -898,7 +902,7 @@ function ChamberGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
       setBust(true); setDone(true)
       setRevealed([true,true,true,true,true,true])
     } else {
-      setAccumulated(prev => prev+4)
+      setAccumulated(prev => Math.min(prev + 4, capBonus))
     }
   }
 
@@ -1009,8 +1013,8 @@ function GambleGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
 
   const base        = card.stats[pickedStat]
   const safeBonus   = 2
-  const safeResult  = Math.min(99, base + safeBonus)
-  const mystResult  = Math.min(99, Math.max(1, base + mysteryBonus))
+  const safeResult  = applyStatBonus(base, safeBonus)
+  const mystResult  = applyStatDelta(base, mysteryBonus)
   const progress    = timeLeft / 5000
 
   if (decided && choice) {

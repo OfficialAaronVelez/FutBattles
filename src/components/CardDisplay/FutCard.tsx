@@ -115,6 +115,7 @@ export function FutCard({
   return (
     <div className={classes}>
       <div className="futcard__bg" />
+      <div className="futcard__frame" />
       <div className="futcard__sheen" />
       <div className="futcard__stripe" />
       <img

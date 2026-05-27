@@ -95,6 +95,11 @@ export interface BattleRecord {
 // Formation names are DEF-MID-ATK, 7 outfield players (no GK)
 export type Formation7v7 = '3-2-2' | '2-3-2' | '3-3-1' | '1-3-3' | '2-4-1'
 
+export type TacticType = 'press' | 'counter' | 'park' | 'balanced'
+
+export type TraitType = 'clinical' | 'engine' | 'brick-wall' | 'speedster' | 'enforcer'
+export interface CardTrait { type: TraitType; label: string }
+
 export const FORMATIONS: Formation7v7[] = ['3-2-2', '2-3-2', '3-3-1', '1-3-3', '2-4-1']
 
 export interface FormationSlot {
@@ -117,6 +122,8 @@ export interface CreateDuel {
   playerWon:  boolean
 }
 
+export interface RollBreakdownEntry { label: string; value: number }
+
 export interface BattleMatchup {
   attacker: {
     name:       string
@@ -132,7 +139,15 @@ export interface BattleMatchup {
   attackerRoll: number
   defenderRoll: number
   lastManRoll:  number
+  shotRoll:     number   // actual shot roll vs last man (separate random from attackerRoll)
   scored:       boolean
+  traitFired?:  string | null   // trait effect label if a trait fired this matchup
+  tacticNote?:  string | null   // tactic effect description
+  // Full breakdown of how each roll was calculated
+  atkBreakdown: { statBase: number; bonuses: RollBreakdownEntry[]; dice: number }
+  defBreakdown: { statBase: number; bonuses: RollBreakdownEntry[]; dice: number }
+  lmBreakdown:  { statBase: number; bonuses: RollBreakdownEntry[]; dice: number } | null
+  shotBreakdown:{ statBase: number; bonuses: RollBreakdownEntry[]; dice: number } | null
 }
 
 export interface BattleRound {
@@ -162,16 +177,18 @@ export interface ActiveBattle {
   aiPlayers:       RealPlayer[]
   aiFormation:     Formation7v7
   result:          BattleResult | null
-  // Round tracking (populated by runBattle, updated by pickBattleAttacker / advanceBattleRound)
+  // Round tracking (populated by runBattle, updated by confirmBattleRound / advanceBattleRound)
   currentRound:    number
   totalRounds:     number
   playerGoals:     number   // cumulative AFTER each completed round animation
   aiGoals:         number
   completedRounds: BattleRound[]
-  momentumPlayer:     number   // consecutive scoring attacks (resets on miss)
-  momentumAi:         number
-  subUsed:            boolean
-  attackerUseCounts:  Record<string, number>  // cardId → times used this match
+  momentumPlayer:  number   // consecutive scoring attacks (resets on miss)
+  momentumAi:      number
+  subUsed:         boolean
+  subSlotId:       string | null       // which slot was subbed (null = no sub yet)
+  lastAttackerId:  string | null       // for man-marking: the card used to attack last round
+  currentTactic:   TacticType | null   // tactic selected for the current round (cleared after round resolves)
 }
 
 // Formation layout configs — 7 outfield players, no GK
