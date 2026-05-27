@@ -171,8 +171,8 @@ function defRoll(s: CardStats): number {
   return Math.round(s.DEF * 0.6 + s.PHY * 0.4 + rand(0, RAND_DEF))
 }
 
-function lastManRollFn(s: CardStats): number {
-  return Math.round(s.DEF * 0.65 + s.PHY * 0.35 + rand(0, RAND_LM))
+function lastManRollFn(def: number, phy: number): number {
+  return Math.round(def * 0.65 + phy * 0.35 + rand(0, RAND_LM))
 }
 
 function pasRoll(s: CardStats): number {
@@ -241,7 +241,7 @@ function resolveMatchup(
   if (defenderTrait?.type === 'brick-wall') lmEffDef += 3   // Brick Wall
   if (defenderTrait?.type === 'enforcer')   lmEffPhy += 5   // Enforcer
 
-  const lmBaseRoll  = beatD ? Math.round(lmEffDef * 0.65 + lmEffPhy * 0.35 + rand(0, RAND_LM)) + lastManFlatBonus : 0
+  const lmBaseRoll  = beatD ? lastManRollFn(lmEffDef, lmEffPhy) + lastManFlatBonus : 0
   const shotR       = beatD ? atkRoll(att, 0, clinicalFires ? 5 : 0) : 0
   const scored      = beatD && shotR > lmBaseRoll
 
