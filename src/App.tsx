@@ -9,12 +9,13 @@ import { Roster } from './components/Team/Roster'
 import { TeamSelector } from './components/Battle/TeamSelector'
 import { BattleScreen } from './components/Battle/BattleScreen'
 import { BattleHistory } from './components/Battle/BattleHistory'
+import { TCGStudio } from './components/TCG/TCGStudio'
 import { useGameStore, initGameStoreForUser, clearGameStoreOnLogout } from './store/gameStore'
 import type { DailyMissions } from './store/gameStore'
 import { circleAvatar } from './utils/portrait'
 import type { BattleRecord, UserCard } from './types'
 
-type Tab = 'home' | 'pack' | 'roster' | 'battle'
+type Tab = 'home' | 'pack' | 'roster' | 'battle' | 'tcg'
 type BattleSubTab = 'play' | 'history'
 
 const DESKTOP_MQ = '(min-width: 900px)'
@@ -257,6 +258,7 @@ export default function App() {
     )
   }
 
+  const isTCGAdmin  = session.user.email === 'aaronvelezcoronado@gmail.com'
   const inBattle    = battle !== null
   const isImmersive = !!packSession || (inBattle && battle?.phase !== 'team-select')
 
@@ -314,6 +316,14 @@ export default function App() {
                 <span className="rail__nav-icon">⚔️</span> Battle
                 {streak >= 3 && <span className="rail__nav-streak">🔥{streak}</span>}
               </button>
+              {isTCGAdmin && (
+                <button className={`rail__nav-item ${tab === 'tcg' ? 'active' : ''}`} onClick={() => setTab('tcg')}
+                  style={{ borderTop: '1px solid var(--line)', marginTop: 8, paddingTop: 12 }}
+                >
+                  <span className="rail__nav-icon">♟️</span> TCG Studio
+                  <span style={{ marginLeft: 'auto', fontSize: 7, letterSpacing: '0.1em', color: 'var(--purple-1)', fontFamily: 'var(--font-mono)', background: 'rgba(185,107,255,0.12)', borderRadius: 4, padding: '1px 5px' }}>DEV</span>
+                </button>
+              )}
             </nav>
 
             <div className="rail__section">
@@ -402,6 +412,13 @@ export default function App() {
                 <button className={`tab ${tab === 'battle' ? 'active' : ''}`} onClick={handleBattleTab}>
                   BATTLE {streak >= 3 && <span className="tab__streak">🔥{streak}</span>}
                 </button>
+                {isTCGAdmin && (
+                  <button className={`tab ${tab === 'tcg' ? 'active' : ''}`} onClick={() => setTab('tcg')}
+                    style={{ color: tab === 'tcg' ? 'var(--purple-1)' : undefined }}
+                  >
+                    TCG
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -431,6 +448,8 @@ export default function App() {
                 setSub={setBattleSub}
                 onGoHome={() => { resetBattle(); setTab('pack') }}
               />
+            ) : tab === 'tcg' && isTCGAdmin ? (
+              <TCGStudio />
             ) : null}
           </main>
         </div>
