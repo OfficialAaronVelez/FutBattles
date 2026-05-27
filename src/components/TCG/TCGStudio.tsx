@@ -75,10 +75,7 @@ export function TCGStudio() {
   const [selectedCard, setSelectedCard] = useState<TCGCard | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
-  if (mode === 'battle') {
-    return <TCGBattle onExit={() => setMode('gallery')} />
-  }
-
+  // ALL useMemo hooks must run before any conditional return (Rules of Hooks)
   const filtered = useMemo(() => {
     return TCG_CARDS.filter(c => {
       if (filters.type !== 'All' && c.type !== filters.type) return false
@@ -95,6 +92,11 @@ export function TCGStudio() {
 
   const setFilter = <K extends keyof Filters>(key: K, val: Filters[K]) =>
     setFilters(f => ({ ...f, [key]: val }))
+
+  // Conditional render AFTER all hooks
+  if (mode === 'battle') {
+    return <TCGBattle onExit={() => setMode('gallery')} />
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
