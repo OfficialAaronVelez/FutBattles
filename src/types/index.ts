@@ -46,6 +46,7 @@ export interface UserCard {
   createdAt: number
   clubAffinity?: string    // club of the real player who donated the position
   nationAffinity?: string  // nation of the real player who donated the position
+  imageUrl?: string        // custom portrait uploaded at forge time
 }
 
 export interface PackCard {

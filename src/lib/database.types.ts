@@ -15,11 +15,14 @@ export interface Database {
           id: string
           username: string
           coins?: number
+          created_at?: string
         }
         Update: {
           username?: string
           coins?: number
+          created_at?: string
         }
+        Relationships: []
       }
       user_cards: {
         Row: {
@@ -31,6 +34,7 @@ export interface Database {
           cosmetic: string
           club_affinity: string | null
           nation_affinity: string | null
+          image_url: string | null
           created_at: string
         }
         Insert: {
@@ -42,6 +46,7 @@ export interface Database {
           cosmetic: string
           club_affinity?: string | null
           nation_affinity?: string | null
+          image_url?: string | null
           created_at?: string
         }
         Update: {
@@ -49,7 +54,20 @@ export interface Database {
           position?: string | null
           stats?: Record<string, number>
           cosmetic?: string
+          club_affinity?: string | null
+          nation_affinity?: string | null
+          image_url?: string | null
+          created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'user_cards_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
       battle_history: {
         Row: {
@@ -72,8 +90,28 @@ export interface Database {
           coins_earned: number
           created_at?: string
         }
-        Update: Record<string, never>
+        Update: {
+          result?: 'win' | 'loss' | 'draw'
+          player_goals?: number
+          ai_goals?: number
+          formation?: string
+          coins_earned?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'battle_history_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
   }
 }

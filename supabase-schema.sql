@@ -21,6 +21,7 @@ create table if not exists public.user_cards (
   cosmetic        text not null default 'base',
   club_affinity   text,
   nation_affinity text,
+  image_url       text,
   created_at      timestamptz not null default now()
 );
 

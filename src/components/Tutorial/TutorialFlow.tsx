@@ -128,11 +128,11 @@ function TutorialBanner({ step }: { step: 1 | 3 }) {
   return (
     <div style={{
       position:       'fixed',
-      bottom:         24,
+      top:            16,
       left:           '50%',
       transform:      'translateX(-50%)',
       zIndex:         900,
-      width:          'calc(100% - 48px)',
+      width:          'calc(100% - 32px)',
       maxWidth:       480,
       background:     'linear-gradient(135deg, rgba(8,12,22,0.97), rgba(16,24,44,0.97))',
       border:         '1px solid rgba(212,175,55,0.4)',
@@ -140,6 +140,7 @@ function TutorialBanner({ step }: { step: 1 | 3 }) {
       padding:        '14px 20px',
       boxShadow:      '0 8px 40px rgba(0,0,0,0.8), 0 0 30px rgba(212,175,55,0.08)',
       backdropFilter: 'blur(12px)',
+      pointerEvents:  'none',
     }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <div style={{ fontSize: 28, flexShrink: 0, marginTop: 2 }}>

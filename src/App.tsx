@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './lib/supabase'
+import { BackgroundMusic } from './components/Audio/BackgroundMusic'
 import { AuthScreen } from './components/Auth/AuthScreen'
 import { TutorialFlow } from './components/Tutorial/TutorialFlow'
 import { PackOpening } from './components/PackOpening/PackOpening'
@@ -8,13 +9,20 @@ import { Roster } from './components/Team/Roster'
 import { TeamSelector } from './components/Battle/TeamSelector'
 import { BattleScreen } from './components/Battle/BattleScreen'
 import { BattleHistory } from './components/Battle/BattleHistory'
-import { useGameStore } from './store/gameStore'
+import { useGameStore, initGameStoreForUser, clearGameStoreOnLogout } from './store/gameStore'
 import type { DailyMissions } from './store/gameStore'
 import { circleAvatar } from './utils/portrait'
 import type { BattleRecord, UserCard } from './types'
 
 type Tab = 'home' | 'pack' | 'roster' | 'battle'
 type BattleSubTab = 'play' | 'history'
+
+const DESKTOP_MQ = '(min-width: 900px)'
+
+function initialTab(): Tab {
+  if (typeof window !== 'undefined' && window.matchMedia(DESKTOP_MQ).matches) return 'pack'
+  return 'home'
+}
 
 /* ── Live feed ───────────────────────────────────────────────────── */
 type FeedEvent = { accent: string; emoji: string; who: string; what: string; ts: number }
@@ -155,9 +163,21 @@ function computeLeaderboard(history: BattleRecord[], username: string): LBEntry[
 
 export default function App() {
   const [session, setSession]     = useState<Session | null | undefined>(undefined)
-  const [tab, setTab]             = useState<Tab>('home')
+  const [gameReady, setGameReady]   = useState(false)
+  const [tab, setTab]             = useState<Tab>(initialTab)
   const [battleSub, setBattleSub] = useState<BattleSubTab>('play')
   const { roster, packSession, battle, coins, battleHistory, startBattle, resetBattle, tutorialDone, dailyMissions, claimedBattleRewards } = useGameStore()
+
+  const userId = session?.user?.id ?? null
+
+  // Desktop has no home tab — keep packs as the landing view
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_MQ)
+    const syncTab = () => setTab(t => (mq.matches && t === 'home') ? 'pack' : t)
+    syncTab()
+    mq.addEventListener('change', syncTab)
+    return () => mq.removeEventListener('change', syncTab)
+  }, [])
 
   // ── Auth listener ──────────────────────────────────────────
   useEffect(() => {
@@ -171,11 +191,43 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
+  // ── Per-user game state (local cache + Supabase) ───────────
+  useEffect(() => {
+    if (session === undefined) return
+
+    if (!userId) {
+      clearGameStoreOnLogout()
+      setGameReady(false)
+      return
+    }
+
+    let cancelled = false
+    setGameReady(false)
+
+    void initGameStoreForUser(userId).finally(() => {
+      if (!cancelled) setGameReady(true)
+    })
+
+    return () => { cancelled = true }
+  }, [session === undefined ? 'loading' : userId])
+
   // Still loading initial session — show nothing (avoids flash)
   if (session === undefined) return null
 
   // Not authenticated — show auth screen
-  if (session === null) return <AuthScreen />
+  if (session === null) {
+    return (
+      <>
+        <BackgroundMusic />
+        <AuthScreen />
+      </>
+    )
+  }
+
+  // Wait until this account's saved progress has been loaded
+  if (!gameReady) {
+    return <BackgroundMusic />
+  }
 
   // Derive display name from session metadata
   const username: string =
@@ -186,11 +238,13 @@ export default function App() {
   // ── Tutorial gate ──────────────────────────────────────────
   if (!tutorialDone) {
     return (
-      <div className="page">
+      <>
+        <BackgroundMusic />
+        <div className="page">
         {/* Underlying game content rendered during tutorial steps 1 (pack) & 3 (battle) */}
         <div className="layout layout--immersive">
           <div className="app-shell">
-            <main style={{ flex: 1 }}>
+            <main className="tutorial-main" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               {packSession && <PackOpening />}
               {battle && battle.phase !== 'team-select' && <BattleScreen />}
             </main>
@@ -198,7 +252,8 @@ export default function App() {
         </div>
         {/* Tutorial overlay — manages all 5 steps */}
         <TutorialFlow username={username} />
-      </div>
+        </div>
+      </>
     )
   }
 
@@ -217,7 +272,9 @@ export default function App() {
   }
 
   return (
-    <div className="page">
+    <>
+      <BackgroundMusic />
+      <div className="page">
       <div className={`layout ${isImmersive ? 'layout--immersive' : ''}`}>
 
         {/* ── Left rail (desktop) ── */}
@@ -307,7 +364,7 @@ export default function App() {
         <div className="app-shell">
           {/* Mobile top nav */}
           {!packSession && (
-            <div className="topnav" style={{
+            <div className="topnav topnav--mobile-only" style={{
               position: 'sticky', top: 0, zIndex: 10,
               background: 'linear-gradient(180deg, rgba(8,12,22,0.95), rgba(8,12,22,0.85))',
               backdropFilter: 'blur(10px)',
@@ -337,7 +394,7 @@ export default function App() {
                 </div>
               </div>
               <div className="tabs">
-                <button className={`tab ${tab === 'home'   ? 'active' : ''}`} onClick={() => setTab('home')}>HOME</button>
+                <button className={`tab tab--mobile-only ${tab === 'home' ? 'active' : ''}`} onClick={() => setTab('home')}>HOME</button>
                 <button className={`tab ${tab === 'pack'   ? 'active' : ''}`} onClick={() => setTab('pack')}>PACKS</button>
                 <button className={`tab ${tab === 'roster' ? 'active' : ''}`} onClick={() => setTab('roster')}>
                   SQUAD {roster.length > 0 && <span className="tab__badge">{roster.length}</span>}
@@ -349,7 +406,7 @@ export default function App() {
             </div>
           )}
 
-          <main style={{ flex: 1 }}>
+          <main className={packSession ? 'main--forge' : undefined} style={{ flex: 1 }}>
             {packSession ? (
               <PackOpening />
             ) : tab === 'home' ? (
@@ -501,6 +558,7 @@ export default function App() {
         )}
       </div>
     </div>
+    </>
   )
 }
 

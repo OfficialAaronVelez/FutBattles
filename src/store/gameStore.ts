@@ -1,5 +1,15 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
+import {
+  cancelRemoteSync,
+  fetchRemoteGameState,
+  loadLocalMeta,
+  mergeRemoteWithLocal,
+  pickPersistedSlice,
+  persistedSlicesEqual,
+  pushRemoteGameState,
+  scheduleRemoteSync,
+} from '../lib/gameSync'
 import type {
   UserCard,
   PackOpeningState,
@@ -80,6 +90,103 @@ function ensureDaily(d: DailyMissions | null | undefined): DailyMissions {
   return d
 }
 
+export const STORAGE_BASE = 'futbattles-storage'
+
+let activeUserId: string | null = null
+let skipPersistWrite = false
+let syncUnsub: (() => void) | null = null
+
+function userStorageKey() {
+  return activeUserId ? `${STORAGE_BASE}:${activeUserId}` : `${STORAGE_BASE}:anonymous`
+}
+
+const userScopedStorage: StateStorage = {
+  getItem: () => localStorage.getItem(userStorageKey()),
+  setItem: (_name, value) => {
+    if (skipPersistWrite || !activeUserId) return
+    localStorage.setItem(userStorageKey(), value)
+  },
+  removeItem: () => {
+    if (!activeUserId) return
+    localStorage.removeItem(userStorageKey())
+  },
+}
+
+/** Move pre-auth global saves onto the signed-in account once. */
+export function migrateLegacyStorage(userId: string) {
+  const userKey = `${STORAGE_BASE}:${userId}`
+  if (localStorage.getItem(userKey)) return
+  const legacy = localStorage.getItem(STORAGE_BASE)
+  if (legacy) localStorage.setItem(userKey, legacy)
+}
+
+export async function initGameStoreForUser(userId: string): Promise<void> {
+  syncUnsub?.()
+  syncUnsub = null
+  cancelRemoteSync()
+
+  activeUserId = userId
+  migrateLegacyStorage(userId)
+  await useGameStore.persist.rehydrate()
+
+  const meta = loadLocalMeta(userId)
+  if (meta) {
+    const current = useGameStore.getState()
+    useGameStore.setState({
+      tutorialDone:         meta.tutorialDone         ?? current.tutorialDone,
+      dailyMissions:        meta.dailyMissions        ?? current.dailyMissions,
+      savedLineup:          meta.savedLineup          ?? current.savedLineup,
+      claimedBattleRewards: meta.claimedBattleRewards ?? current.claimedBattleRewards,
+    })
+  }
+
+  try {
+    const remote = await fetchRemoteGameState(userId)
+    if (remote) {
+      const merged = mergeRemoteWithLocal(
+        pickPersistedSlice(useGameStore.getState()),
+        remote,
+        meta,
+      )
+      useGameStore.setState({ ...merged, packSession: null, battle: null })
+      await pushRemoteGameState(userId, pickPersistedSlice(useGameStore.getState()))
+    }
+  } catch (err) {
+    console.warn('[gameStore] remote init failed', err)
+  }
+
+  let prevSlice = pickPersistedSlice(useGameStore.getState())
+  syncUnsub = useGameStore.subscribe(state => {
+    if (!activeUserId) return
+    const nextSlice = pickPersistedSlice(state)
+    if (!persistedSlicesEqual(prevSlice, nextSlice)) {
+      prevSlice = nextSlice
+      scheduleRemoteSync(activeUserId, nextSlice)
+    }
+  })
+}
+
+export function clearGameStoreOnLogout(): void {
+  syncUnsub?.()
+  syncUnsub = null
+  cancelRemoteSync()
+
+  skipPersistWrite = true
+  activeUserId = null
+  useGameStore.setState({
+    roster:               [],
+    coins:                2000,
+    battleHistory:        [],
+    packSession:          null,
+    battle:               null,
+    tutorialDone:         false,
+    dailyMissions:        freshDaily(),
+    savedLineup:          null,
+    claimedBattleRewards: 0,
+  })
+  skipPersistWrite = false
+}
+
 interface GameStore {
   roster:               UserCard[]
   coins:                number
@@ -106,7 +213,7 @@ interface GameStore {
   selectCosmetic:    (cosmetic: CardCosmetic) => void
   replaceStat:       (stat: StatKey, value: number, fromPlayer: string) => void
   skipCard:          () => void
-  finalizeCard:      () => void
+  finalizeCard:      (imageUrl?: string, cardId?: string) => void
   resetPackSession:  () => void
 
   // Battle
@@ -264,7 +371,7 @@ export const useGameStore = create<GameStore>()(
         set({ packSession: { ...packSession, currentCardIndex: packSession.currentCardIndex + 1 } })
       },
 
-      finalizeCard: () => {
+      finalizeCard: (imageUrl, cardId) => {
         const { packSession, roster, coins } = get()
         if (!packSession) return
         const stats: Partial<Record<StatKey, number>> = {}
@@ -276,7 +383,7 @@ export const useGameStore = create<GameStore>()(
         const sourcePlayer = posFromName ? PLAYERS.find(p => p.name === posFromName) : null
 
         const newCard: UserCard = {
-          id:             crypto.randomUUID(),
+          id:             cardId ?? crypto.randomUUID(),
           name:           packSession.playerName,
           position:       packSession.lockedPosition?.position ?? null,
           stats,
@@ -284,6 +391,7 @@ export const useGameStore = create<GameStore>()(
           createdAt:      Date.now(),
           clubAffinity:   sourcePlayer?.club,
           nationAffinity: sourcePlayer?.nation,
+          imageUrl,
         }
 
         // ── Daily mission rewards ──
@@ -482,7 +590,10 @@ export const useGameStore = create<GameStore>()(
       resetBattle: () => set({ battle: null }),
     }),
     {
-      name: 'futbattles-storage',
+      name: STORAGE_BASE,
+      storage: createJSONStorage(() => userScopedStorage),
+      partialize: state => pickPersistedSlice(state),
+      skipHydration: true,
       version: 7,
       migrate: (persisted: unknown, fromVersion: number) => {
         const s = (persisted ?? {}) as Record<string, unknown>

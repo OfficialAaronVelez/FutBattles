@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useGameStore } from '../../store/gameStore'
 import { STAT_KEYS } from '../../types'
-import type { StatKey, Position, CardCosmetic } from '../../types'
+import type { StatKey, Position, CardCosmetic, LockedSlot, LockedPosition } from '../../types'
 import { FutCard } from '../CardDisplay/FutCard'
 import { CardBuilder } from './CardBuilder'
 import { PackSelector } from './PackSelector'
 import { CardReveal } from './CardReveal'
 import { PackIntro } from './PackIntro'
+import { CosmeticOfferPreview, buildForgePreviewCard } from './CosmeticOfferPreview'
 import { MiniGame } from './MiniGames'
 
 export function PackOpening() {
@@ -59,44 +60,18 @@ function PackOpeningSession() {
 
   if (isDone) {
     return (
-      <div style={{ padding: '24px 20px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, position: 'relative' }}>
-        {/* Confetti */}
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-          {Array.from({ length: 26 }).map((_, i) => {
-            const colors = ['#ffd66b', '#25e0ff', '#b96bff', '#44ff9e', '#ff4767']
-            const x = (i / 26) * 100
-            const delay = (i * 137) % 800
-            return (
-              <div key={i} style={{
-                position: 'absolute', left: `${x}%`, top: -20,
-                width: 6, height: 12, background: colors[i % colors.length],
-                borderRadius: 2, transform: 'translate3d(0,0,0)',
-                animation: `confetti-fall 2.2s ${delay}ms ease-in forwards`,
-                ['--dx' as string]: `${(i % 5 - 2) * 30}px`,
-                ['--rot' as string]: `${(i % 2 ? 1 : -1) * 720}deg`,
-              }} />
-            )
-          })}
+      <div className="pack-forge-final">
+        <div className="pack-forge-final__header">
+          <div className="eyebrow" style={{ color: 'var(--gold-1)', fontSize: 8 }}>PACK COMPLETE</div>
+          <h1 className="font-display pack-forge-final__title">MEET YOUR LEGEND</h1>
         </div>
-
-        {/* Header */}
-        <div className="text-center" style={{ padding: '24px 16px 12px', position: 'relative', zIndex: 2 }}>
-          <div className="eyebrow" style={{ color: 'var(--gold-1)' }}>PACK COMPLETE</div>
-          <h1 className="font-display" style={{ fontSize: 44, margin: '4px 0 4px', lineHeight: 0.9, color: 'var(--ink-0)' }}>
-            MEET YOUR LEGEND
-          </h1>
-          <div style={{ color: 'var(--ink-2)', fontSize: 13 }}>Final card ready to join your squad</div>
-        </div>
-
-        <div className="futcard-wrap" style={{ position: 'relative', zIndex: 2 }}>
-          <CardBuilder
-            playerName={playerName}
-            lockedStats={lockedStats}
-            lockedPosition={lockedPosition}
-            lockedCosmetic={lockedCosmetic}
-            onFinalize={finalizeCard}
-          />
-        </div>
+        <CardBuilder
+          playerName={playerName}
+          lockedStats={lockedStats}
+          lockedPosition={lockedPosition}
+          lockedCosmetic={lockedCosmetic}
+          onFinalize={finalizeCard}
+        />
       </div>
     )
   }
@@ -117,22 +92,41 @@ function PackOpeningSession() {
   const isLastPositionChance = !positionFilled && !isBonus
     && packCards.slice(currentCardIndex + 1).every(c => c.isBonus)
 
-  // Preview card for "YOUR CARD" side
-  const statsObj: Partial<Record<StatKey, number>> = {}
-  for (const [key, slot] of Object.entries(lockedStats ?? {})) {
-    statsObj[key as StatKey] = slot.value
-  }
-  const previewCard = {
-    id: 'preview', name: playerName,
-    position: lockedPosition?.position ?? null,
-    cosmetic: lockedCosmetic ?? ('base' as CardCosmetic),
-    stats: statsObj, createdAt: 0,
-  }
+  // Preview stats for left sidebar
+  const yourCardPreview = (
+    <ForgeCardPreview
+      playerName={playerName}
+      lockedStats={lockedStats}
+      lockedPosition={lockedPosition}
+      lockedCosmetic={lockedCosmetic}
+      progress={progress}
+    />
+  )
+
+  const forgeTopBar = (
+    <div className="pack-forge-topbar">
+      <div className="pack-forge-topbar__row">
+        <div>
+          <div className="eyebrow" style={{ color: 'var(--ink-3)', fontSize: 8 }}>FORGING</div>
+          <div className="pack-forge-topbar__name">{playerName}</div>
+        </div>
+        <div className="pack-forge-topbar__meta">
+          <div><strong>{progress}/7</strong> slots · card {currentCardIndex + 1}/{packCards.length}</div>
+          {lockedCosmetic && <div>Cosmetic ✓</div>}
+        </div>
+      </div>
+      <div className="progress" style={{ height: 6 }}>
+        <div className="progress__fill" style={{ width: `${(progress / 7) * 100}%` }} />
+      </div>
+    </div>
+  )
 
   // When all 6 stats are already filled (overflow non-bonus rounds), treat as replace
   const shouldReplace = isBonus || allStatsFilled
 
   function handleSelectStat(stat: StatKey, value: number) {
+    if (!shouldReplace && lockedStatKeys.includes(stat)) return
+
     // BOOM: 15% chance of a +4 boost (non-bonus / non-overflow cards only)
     const isBoom   = !shouldReplace && Math.random() < 0.15
     const finalVal = isBoom ? Math.min(99, value + 4) : value
@@ -162,118 +156,99 @@ function PackOpeningSession() {
   }
 
 
-  // ── Top progress bar (shared across all states) ──────────────────────────
-  const topBar = (
-    <div style={{
-      padding: '16px 32px 12px',
-      borderBottom: '1px solid var(--line)',
-      background: 'rgba(6,9,18,0.8)',
-      backdropFilter: 'blur(8px)',
-      position: 'sticky', top: 0, zIndex: 10,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div>
-          <div className="eyebrow" style={{ color: 'var(--ink-3)' }}>FORGING</div>
-          <div className="font-display" style={{ fontSize: 32, color: 'var(--ink-0)', letterSpacing: '0.04em', lineHeight: 1 }}>
-            {playerName}
-          </div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div className="eyebrow" style={{ color: 'var(--gold-1)', fontSize: 10 }}>
-            {progress}/7 SLOTS {lockedCosmetic ? '· COSMETIC ✓' : ''}
-          </div>
-          <div className="eyebrow" style={{ color: 'var(--ink-3)', marginTop: 2 }}>
-            CARD {currentCardIndex + 1} / {packCards.length}
-          </div>
-        </div>
-      </div>
-      <div className="progress">
-        <div className="progress__fill" style={{ width: `${(progress / 7) * 100}%` }} />
-      </div>
-    </div>
-  )
 
   // ── MINI-GAME phase (revealed but no pending stat yet) ───────────────────
   if (isRevealed && !pendingStat) {
     const gameType = packSession.miniGames[currentCardIndex] ?? 'normal'
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-        {topBar}
-        <MiniGame
-          type={gameType}
-          card={realPlayer}
-          takenStats={shouldReplace ? [] : lockedStatKeys}
-          onComplete={(stat, value) => setPendingStat({ stat, value })}
-        />
+      <div className="pack-forge-session">
+        {forgeTopBar}
+        <div className="pack-forge-layout">
+          {yourCardPreview}
+          <div className="pack-forge-game">
+            <MiniGame
+              type={gameType}
+              card={realPlayer}
+              takenStats={shouldReplace ? [] : lockedStatKeys}
+              onComplete={(stat, value) => setPendingStat({ stat, value })}
+              compact
+            />
+          </div>
+        </div>
       </div>
     )
   }
 
   // ── RESULT phase (mini-game done, pendingStat set) ────────────────────────
   if (isRevealed && pendingStat) {
+    const pendingCardPreview = (
+      <ForgeCardPreview
+        playerName={playerName}
+        lockedStats={lockedStats}
+        lockedPosition={lockedPosition}
+        lockedCosmetic={lockedCosmetic}
+        progress={progress}
+        pendingStat={pendingStat}
+      />
+    )
+
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-        {topBar}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', gap: 24 }}>
-          {/* Earned stat display */}
-          <div style={{ textAlign: 'center' }}>
-            <div className="eyebrow" style={{ color: 'var(--gold-1)', marginBottom: 8 }}>STAT EARNED</div>
-            <div className="font-display" style={{ fontSize: 64, color: '#f5b327', letterSpacing: '0.04em', lineHeight: 0.9, textShadow: '0 0 30px rgba(245,179,39,0.4)' }}>
-              ⚡ {pendingStat.stat} {pendingStat.value}
-            </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 8 }}>from {realPlayer.name}</div>
-          </div>
+      <div className="pack-forge-session">
+        {forgeTopBar}
+        <div className="pack-forge-layout">
+          {pendingCardPreview}
+          <div className="pack-forge-game">
+            <div className="pack-forge-result">
+              <div style={{ textAlign: 'center' }}>
+                <div className="eyebrow" style={{ color: 'var(--gold-1)', marginBottom: 4, fontSize: 9 }}>STAT EARNED</div>
+                <div className="pack-forge-result__stat">⚡ {pendingStat.stat} {pendingStat.value}</div>
+                <div className="pack-forge-result__from">from {realPlayer.name}</div>
+              </div>
 
-          {/* YOUR CARD preview */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <div className="eyebrow" style={{ color: 'var(--gold-1)', fontSize: 10 }}>YOUR CARD</div>
-            <FutCard card={previewCard} size="lg" />
-          </div>
+              <div className="pack-forge-result__actions">
+                {canSelectPosition && !positionFilled && (
+                  <button
+                    onClick={handleSelectPosition}
+                    style={{
+                      width: '100%', padding: '8px 0',
+                      background: 'rgba(37,224,255,0.1)', border: '1px solid #25e0ff',
+                      borderRadius: 10, color: '#25e0ff', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                    }}
+                  >
+                    + Take {realPlayer.position} position
+                  </button>
+                )}
+                {canSelectCosmetic && cosmeticOffer && (
+                  <CosmeticOfferPreview
+                    cosmetic={cosmeticOffer}
+                    previewCard={buildForgePreviewCard(
+                      playerName,
+                      lockedStats,
+                      lockedPosition,
+                      lockedCosmetic,
+                      pendingStat,
+                    )}
+                    taken={cosmeticFilled}
+                    onTake={() => handleSelectCosmetic(cosmeticOffer)}
+                  />
+                )}
 
-          {/* Side picks (position / cosmetic) */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%', maxWidth: 360 }}>
-            {canSelectPosition && !positionFilled && (
-              <button
-                onClick={handleSelectPosition}
-                style={{
-                  width: '100%', padding: '10px 0',
-                  background: 'rgba(37,224,255,0.1)', border: '1px solid #25e0ff',
-                  borderRadius: 10, color: '#25e0ff', cursor: 'pointer', fontSize: 13, fontWeight: 700,
-                }}
-              >
-                + Take {realPlayer.position} position
-              </button>
-            )}
-            {canSelectCosmetic && !cosmeticFilled && cosmeticOffer && (
-              <button
-                onClick={() => handleSelectCosmetic(cosmeticOffer)}
-                style={{
-                  width: '100%', padding: '10px 0',
-                  background: 'rgba(185,107,255,0.1)', border: '1px solid #b96bff',
-                  borderRadius: 10, color: '#b96bff', cursor: 'pointer', fontSize: 13, fontWeight: 700,
-                }}
-              >
-                + Take {cosmeticOffer} cosmetic
-              </button>
-            )}
-          </div>
-
-          {/* Last-position-chance gate */}
-          {isLastPositionChance && !positionFilled ? (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 12, color: 'rgba(255,200,80,0.9)', fontWeight: 700 }}>
-                ⚠️ Last chance for a position — take it above to continue
+                {isLastPositionChance && !positionFilled ? (
+                  <div style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,200,80,0.9)', fontWeight: 700 }}>
+                    ⚠️ Last chance for a position — take it above to continue
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleSelectStat(pendingStat.stat, pendingStat.value)}
+                    className="btn btn-primary"
+                    style={{ width: '100%', fontSize: 14, padding: '10px 0' }}
+                  >
+                    Continue →
+                  </button>
+                )}
               </div>
             </div>
-          ) : (
-            <button
-              onClick={() => handleSelectStat(pendingStat.stat, pendingStat.value)}
-              className="btn btn-primary"
-              style={{ width: '100%', maxWidth: 360, fontSize: 16, padding: '14px 0' }}
-            >
-              Continue →
-            </button>
-          )}
+          </div>
         </div>
       </div>
     )
@@ -281,82 +256,42 @@ function PackOpeningSession() {
 
   // ── PRE-REVEAL phase (face-down card) ────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-      {topBar}
-
-      {/* Main area: two cards side by side */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 40,
-        padding: '32px 40px',
-        flexWrap: 'wrap',
-      }}>
-        {/* Bonus banner (full width above cards) */}
-        {isBonus && (
-          <div style={{
-            width: '100%', maxWidth: 700,
-            background: 'linear-gradient(90deg, rgba(185,107,255,0.15), rgba(185,107,255,0.05))',
-            border: '1px solid var(--purple-1)',
-            borderRadius: 12, padding: '10px 20px', textAlign: 'center',
-            boxShadow: '0 0 20px rgba(185,107,255,0.2)',
-          }}>
-            <div className="font-display" style={{ fontSize: 22, color: 'var(--purple-0)', letterSpacing: '0.1em' }}>
-              ⚡ BONUS CARD — Replace any locked stat · or skip
+    <div className="pack-forge-session">
+      {forgeTopBar}
+      <div className="pack-forge-layout">
+        {yourCardPreview}
+        <div className="pack-forge-game">
+          {isBonus && (
+            <div className="pack-forge-bonus">⚡ BONUS — Replace any stat or skip</div>
+          )}
+          <div className="pack-forge-reveal">
+            <div className="pack-forge-reveal__label pack-forge-reveal__label--cyan">FROM PACK</div>
+            <div className="pack-forge-reveal__scaler">
+              <CardReveal
+                key={currentCardIndex}
+                isRevealed={isRevealed}
+                onReveal={() => setIsRevealed(true)}
+                rarity={rarity}
+                cardIndex={currentCardIndex}
+                totalCards={packCards.length}
+              >
+                <FutCard
+                  card={realPlayer}
+                  size="lg"
+                  dimmed={dimmedStats}
+                  isBonus={isBonus}
+                  showPositionButton={false}
+                  onPositionClick={undefined}
+                  positionTaken={positionFilled}
+                  cosmeticOffer={undefined}
+                  onCosmeticClick={undefined}
+                  cosmeticTaken={cosmeticFilled}
+                />
+              </CardReveal>
             </div>
-          </div>
-        )}
-
-        {/* FROM PACK */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <div className="eyebrow" style={{ color: 'var(--cyan-1)', fontSize: 10 }}>FROM PACK</div>
-          <CardReveal
-            key={currentCardIndex}
-            isRevealed={isRevealed}
-            onReveal={() => setIsRevealed(true)}
-            rarity={rarity}
-            cardIndex={currentCardIndex}
-            totalCards={packCards.length}
-          >
-            <FutCard
-              card={realPlayer}
-              size="lg"
-              dimmed={dimmedStats}
-              isBonus={isBonus}
-              showPositionButton={false}
-              onPositionClick={undefined}
-              positionTaken={positionFilled}
-              cosmeticOffer={undefined}
-              onCosmeticClick={undefined}
-              cosmeticTaken={cosmeticFilled}
-            />
-          </CardReveal>
-          <div style={{ minHeight: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <div style={{ color: 'var(--ink-3)', fontSize: 12 }}>Tap the card to reveal</div>
+            <div className="pack-forge-reveal__hint">Tap the card to reveal</div>
           </div>
         </div>
-
-        {/* Divider */}
-        <div style={{
-          width: 1, alignSelf: 'stretch', minHeight: 200,
-          background: 'linear-gradient(180deg, transparent, var(--line) 20%, var(--line) 80%, transparent)',
-        }} />
-
-        {/* YOUR CARD */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <div className="eyebrow" style={{ color: 'var(--gold-1)', fontSize: 10 }}>YOUR CARD</div>
-          <FutCard card={previewCard} size="lg" />
-          <div style={{ minHeight: 28 }} />
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div style={{ padding: '12px 32px 24px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'center' }}>
-        <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-          Reveal cards and lock your best stats
-        </span>
       </div>
 
       {/* BOOM overlay */}
@@ -422,6 +357,100 @@ function PackOpeningSession() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+const COSMETIC_LABEL: Record<CardCosmetic, string> = {
+  base: 'Base', neon: 'Neon', fire: 'Fire', ice: 'Ice', chrome: 'Chrome', shadow: 'Shadow',
+}
+
+function ForgeCardPreview({
+  playerName,
+  lockedStats,
+  lockedPosition,
+  lockedCosmetic,
+  progress,
+  pendingStat,
+}: {
+  playerName: string
+  lockedStats: Partial<Record<StatKey, LockedSlot>>
+  lockedPosition: LockedPosition | null
+  lockedCosmetic: CardCosmetic | null
+  progress: number
+  pendingStat?: { stat: StatKey; value: number }
+}) {
+  const statValues = STAT_KEYS.map(stat => {
+    if (pendingStat?.stat === stat) return pendingStat.value
+    return lockedStats[stat]?.value
+  }).filter((v): v is number => v !== undefined)
+
+  const ovr = statValues.length
+    ? Math.round(statValues.reduce((a, b) => a + b, 0) / statValues.length)
+    : null
+
+  return (
+    <div className="pack-forge-preview">
+      <div className="eyebrow pack-forge-preview__label">YOUR CARD</div>
+
+      <div className="forge-preview">
+        <div className="forge-preview__head">
+          <div className="forge-preview__ovr">{ovr ?? '—'}</div>
+          <div className="forge-preview__identity">
+            <div className="forge-preview__name">{playerName}</div>
+            <div className={`forge-preview__pos ${lockedPosition ? 'filled' : ''}`}>
+              {lockedPosition?.position ?? 'No position'}
+            </div>
+          </div>
+        </div>
+
+        <div className="forge-preview__section">
+          <div className="forge-preview__section-title">Stats</div>
+          <div className="forge-preview__stats">
+            {STAT_KEYS.map(stat => {
+              const locked = lockedStats[stat]
+              const isPending = pendingStat?.stat === stat
+              const value = isPending ? pendingStat.value : locked?.value
+              const filled = value !== undefined
+
+              return (
+                <div
+                  key={stat}
+                  className={[
+                    'forge-preview__stat',
+                    filled ? 'filled' : '',
+                    isPending ? 'pending' : '',
+                  ].filter(Boolean).join(' ')}
+                >
+                  <span className="forge-preview__stat-key">{stat}</span>
+                  <span className="forge-preview__stat-val">{filled ? value : '—'}</span>
+                  {locked && !isPending && (
+                    <span className="forge-preview__stat-from">{locked.fromPlayer.split(' ').slice(-1)[0]}</span>
+                  )}
+                  {isPending && (
+                    <span className="forge-preview__stat-from">new</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="forge-preview__extras">
+          <div className={`forge-preview__extra ${lockedPosition ? 'filled' : ''}`}>
+            <span className="forge-preview__extra-label">Position</span>
+            <span className="forge-preview__extra-val">{lockedPosition?.position ?? '—'}</span>
+          </div>
+          <div className={`forge-preview__extra ${lockedCosmetic && lockedCosmetic !== 'base' ? 'filled' : ''}`}>
+            <span className="forge-preview__extra-label">Cosmetic</span>
+            <span className="forge-preview__extra-val">
+              {lockedCosmetic && lockedCosmetic !== 'base' ? COSMETIC_LABEL[lockedCosmetic] : '—'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="pack-forge-preview__meta">{progress}/7 slots</div>
     </div>
   )
 }

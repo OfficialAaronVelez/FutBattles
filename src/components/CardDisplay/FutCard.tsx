@@ -35,7 +35,7 @@ function isUserCard(c: UserCard | RealPlayer): c is UserCard {
 
 interface FutCardProps {
   card: UserCard | RealPlayer
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   highlighted?: StatKey[]
   dimmed?: StatKey[]
   onStatClick?: (stat: StatKey, value: number) => void
@@ -74,13 +74,18 @@ export function FutCard({
   const userCos: CardCosmetic = isUser ? ((card as UserCard).cosmetic ?? 'base') : 'base'
   const cosClass = COSMETIC_CLASS[userCos]
 
-  // Player portrait — async-loaded from Wikipedia for real players, initials SVG for user cards
+  // Player portrait — custom upload, Wikipedia for real players, initials SVG fallback
+  const customImage = isUser ? (card as UserCard).imageUrl : undefined
   const wikiTitle = isUser ? undefined : (card as RealPlayer).wikiTitle
   const fallback  = playerPortrait(name)
-  const [photoSrc, setPhotoSrc] = useState(fallback)
+  const [photoSrc, setPhotoSrc] = useState(customImage ?? fallback)
 
   useEffect(() => {
     let cancelled = false
+    if (customImage) {
+      setPhotoSrc(customImage)
+      return () => { cancelled = true }
+    }
     if (wikiTitle) {
       getWikiImage(wikiTitle).then(url => {
         if (!cancelled && url) setPhotoSrc(url)
@@ -90,7 +95,7 @@ export function FutCard({
     }
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wikiTitle])
+  }, [customImage, wikiTitle, name])
 
   const classes = [
     'futcard',
