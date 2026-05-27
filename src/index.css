@@ -700,14 +700,27 @@ input { font-family: inherit; }
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: stretch;
-  gap: clamp(8px, 1.8vh, 14px);
+  gap: clamp(6px, 1.2vh, 10px);
   min-height: 0;
   width: 100%;
+  overflow: hidden;
+}
+.game-shell__play > .game-play-footer {
+  margin-top: auto;
+  flex-shrink: 0;
+}
+.game-shell__play > .game-center-stack {
+  flex: 1;
+  min-height: 0;
+  justify-content: center;
+}
+/* Non-tile games can scroll on very small screens */
+.game-shell__play:not(:has(.game-tile-grid)) {
   overflow-y: auto;
-  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  justify-content: center;
 }
 /* Full-width action buttons — multi-line, no clipped text */
 .game-action-btn {
@@ -745,37 +758,36 @@ input { font-family: inherit; }
   line-height: 1.3 !important;
   white-space: normal !important;
 }
-/* Tile grids (minefield, chamber) */
+/* Tile grids (minefield, chamber) — size from capped width, not full column */
 .game-tile-grid {
+  --tile-grid-max: min(100%, 268px);
   display: grid;
-  width: 100%;
-  flex: 1 1 auto;
-  min-height: min(24vh, 140px);
-  max-height: min(34vh, 260px);
-  gap: clamp(6px, 1.5vw, 10px);
+  width: var(--tile-grid-max);
+  max-width: 100%;
+  flex: 0 0 auto;
+  min-height: 0;
+  gap: clamp(4px, 1.2vw, 8px);
+  align-self: center;
   align-content: stretch;
 }
-.game-tile-grid--4 { grid-template-columns: repeat(4, 1fr); }
-/* Chamber: 3×2 — size from width so tiles stay on screen in narrow forge column */
+.game-tile-grid--4 {
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  aspect-ratio: 1;
+}
 .game-tile-grid--3 {
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, minmax(0, 1fr));
-  flex: 0 0 auto;
-  min-height: 0;
-  max-height: none;
-  width: 100%;
   aspect-ratio: 3 / 2;
-  gap: clamp(4px, 1.2vw, 8px);
-  align-self: center;
 }
-.game-tile-grid--3 .game-tile-btn {
+.game-tile-grid--3 .game-tile-btn,
+.game-tile-grid--4 .game-tile-btn {
   aspect-ratio: unset;
   min-height: 0;
   height: 100%;
   width: 100%;
 }
 .game-tile-btn {
-  aspect-ratio: 1;
   min-height: 44px;
   width: 100%;
   border-radius: 10px;
@@ -783,7 +795,7 @@ input { font-family: inherit; }
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: clamp(15px, 4vw, 22px);
+  font-size: clamp(14px, 3.5vw, 20px);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -1107,7 +1119,6 @@ input { font-family: inherit; }
   .game-shell--compact .game-shell__title { font-size: 24px; }
   .game-shell--compact .stat-picker__btn { min-height: 64px; }
   .game-shell--compact .stat-picker__btn-val { font-size: 24px !important; }
-  .game-tile-grid:not(.game-tile-grid--3) { min-height: min(28vh, 180px); max-height: min(38vh, 300px); }
   .game-action-btn { min-height: 56px; }
   .game-slots-row { min-height: min(22vh, 160px); }
   .game-gamble-choices { min-height: min(24vh, 180px); }
@@ -1137,9 +1148,24 @@ input { font-family: inherit; }
   .pack-forge-topbar__name { font-size: 26px; }
   .pack-forge-reveal__scaler { --forge-reveal-scale: 0.68; }
 }
+@media (min-width: 900px) {
+  .pack-forge-game .game-tile-grid {
+    --tile-grid-max: min(100%, 280px, calc((100dvh - 300px) * 0.5));
+  }
+  .pack-forge-game .game-tile-grid--3 {
+    --tile-grid-max: min(100%, 300px, calc((100dvh - 300px) * 0.55));
+  }
+}
 @media (min-width: 1024px) {
   .pack-forge-preview { max-width: 260px; flex-basis: 260px; }
   .pack-forge-reveal__scaler { --forge-reveal-scale: 0.75; }
+  /* Wide forge column — keep tile games compact so footer buttons stay visible */
+  .pack-forge-game .game-tile-grid {
+    --tile-grid-max: min(100%, 300px, calc((100dvh - 320px) * 0.52));
+  }
+  .pack-forge-game .game-tile-grid--3 {
+    --tile-grid-max: min(100%, 320px, calc((100dvh - 320px) * 0.58));
+  }
 }
 
 /* ── Wider rails on large screens ── */

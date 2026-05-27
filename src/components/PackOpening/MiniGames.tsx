@@ -185,19 +185,217 @@ function NormalGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
 }
 
 // ─── 2. Slots — stat-name reels, match for bonus ──────────────────────────────
+const SLOT_MODIFIERS = [-4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 8] as const
+type SlotModifier = typeof SLOT_MODIFIERS[number]
+
+function formatModifier(mod: number): string {
+  return mod > 0 ? `+${mod}` : `${mod}`
+}
+
+function clampStat(val: number): number {
+  return Math.max(40, Math.min(99, val))
+}
+
 function SlotsGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
-  const available  = STAT_KEYS.filter(s => !takenStats.includes(s))
-  // Only fall back to all stats in replace mode (nothing taken yet in this round)
+  const available = STAT_KEYS.filter(s => !takenStats.includes(s))
+  const modifierMode = available.length === 1
+  const lockedStat = modifierMode ? available[0] : null
+
+  // ── Modifier mode: one stat left — reels spin +/- deltas ──
+  if (modifierMode && lockedStat) {
+    return (
+      <SlotsModifierMode
+        card={card}
+        stat={lockedStat}
+        base={card.stats[lockedStat]}
+        onComplete={onComplete}
+        compact={compact}
+      />
+    )
+  }
+
+  // ── Stat mode: reels spin stat names ──
   const cycleStats = available.length > 0 ? available : STAT_KEYS
 
+  return (
+    <SlotsStatMode
+      card={card}
+      cycleStats={cycleStats}
+      available={available}
+      onComplete={onComplete}
+      compact={compact}
+    />
+  )
+}
+
+function SlotsModifierMode({
+  card, stat, base, onComplete, compact,
+}: {
+  card: RealPlayer
+  stat: StatKey
+  base: number
+  onComplete: (stat: StatKey, value: number) => void
+  compact?: boolean
+}) {
+  const pool = SLOT_MODIFIERS
+
+  const [reels, setReels] = useState<[SlotModifier, SlotModifier, SlotModifier]>(() => [
+    pool[0], pool[Math.floor(pool.length / 3)], pool[Math.floor((2 * pool.length) / 3)],
+  ])
+  const [stopped, setStopped] = useState<[boolean, boolean, boolean]>([false, false, false])
+  const [revealed, setRevealed] = useState(false)
+  const stoppedRef = useRef([false, false, false])
+
+  useEffect(() => {
+    if (revealed) return
+    const speeds = [83, 100, 121]
+    const ids = ([0, 1, 2] as const).map(i =>
+      setInterval(() => {
+        if (stoppedRef.current[i]) return
+        setReels(prev => {
+          const copy = [...prev] as [SlotModifier, SlotModifier, SlotModifier]
+          const idx = pool.indexOf(copy[i])
+          copy[i] = pool[(idx + 1) % pool.length]
+          return copy
+        })
+      }, speeds[i])
+    )
+    return () => ids.forEach(clearInterval)
+  }, [revealed, pool])
+
+  function stopReel(i: number) {
+    if (stoppedRef.current[i] || revealed) return
+    stoppedRef.current[i] = true
+    const snap: [boolean, boolean, boolean] = [stoppedRef.current[0], stoppedRef.current[1], stoppedRef.current[2]]
+    setStopped(snap)
+    if (snap.every(Boolean)) setTimeout(() => setRevealed(true), 500)
+  }
+
+  const allStopped = stopped.every(Boolean)
+  const matchResult = allStopped ? (() => {
+    const counts: Partial<Record<SlotModifier, number>> = {}
+    for (const m of reels) counts[m] = (counts[m] ?? 0) + 1
+    const triple = (Object.entries(counts) as [string, number][]).find(([, v]) => v === 3)
+    const double = (Object.entries(counts) as [string, number][]).find(([, v]) => v === 2)
+    if (triple) return { kind: 'triple' as const, mod: Number(triple[0]) as SlotModifier }
+    if (double) return { kind: 'double' as const, mod: Number(double[0]) as SlotModifier }
+    return { kind: 'miss' as const, mod: reels[1] }
+  })() : null
+
+  const finalResult = matchResult ? (() => {
+    switch (matchResult.kind) {
+      case 'triple': {
+        const bonus = 4
+        const total = matchResult.mod + bonus
+        return {
+          value: clampStat(base + total),
+          bonus: total,
+          label: '🎰 JACKPOT!',
+          color: GOLD,
+        }
+      }
+      case 'double': {
+        const bonus = 2
+        const total = matchResult.mod + bonus
+        return {
+          value: clampStat(base + total),
+          bonus: total,
+          label: '✨ MATCH! +2',
+          color: GREEN,
+        }
+      }
+      case 'miss': {
+        const total = matchResult.mod
+        return {
+          value: clampStat(base + total),
+          bonus: total,
+          label: total >= 0 ? 'Middle reel' : '❌ NO MATCH',
+          color: total > 0 ? GREEN : total < 0 ? RED : 'rgba(255,255,255,0.5)',
+        }
+      }
+    }
+  })() : null
+
+  return (
+    <GameShell
+      compact={compact}
+      icon="🎰"
+      title="SLOTS"
+      hint={`${stat} · base ${base} · Match modifiers for extra bonus`}
+      accent={GOLD}
+      playerCard={card}
+    >
+      <div className="game-slots-row">
+        {([0, 1, 2] as const).map(i => {
+          const mod = reels[i]
+          const isStopped = stopped[i]
+          const isWinner = revealed && finalResult && finalResult.bonus > 0 && matchResult?.mod === mod
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => stopReel(i)}
+              disabled={isStopped || revealed}
+              className="game-slots-reel"
+              style={{
+                background: isWinner ? `rgba(${hexToRgb(GOLD)},0.2)` : isStopped ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)',
+                border: `2px solid ${isWinner ? GOLD : isStopped ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                filter: isStopped ? 'none' : 'blur(0.4px)',
+                boxShadow: isWinner ? `0 0 16px rgba(${hexToRgb(GOLD)},0.4)` : 'none',
+              }}
+            >
+              <span className="game-slots-reel__stat" style={{ color: isStopped ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.35)', fontSize: 10 }}>
+                {stat}
+              </span>
+              <span
+                className="game-slots-reel__val"
+                style={{
+                  color: mod > 0 ? GREEN : mod < 0 ? RED : isStopped ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.5)',
+                }}
+              >
+                {formatModifier(mod)}
+              </span>
+              {!isStopped && !revealed && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>TAP</span>}
+              {isStopped && !revealed && <span style={{ fontSize: 9, color: GOLD }}>LOCKED</span>}
+            </button>
+          )
+        })}
+      </div>
+      {allStopped && !revealed && <div className="game-play-summary">spinning down…</div>}
+      {revealed && finalResult && (
+        <div className="game-center-stack">
+          <div className="game-result-badge" style={{ background: `rgba(${hexToRgb(finalResult.color)},0.15)`, border: `1px solid ${finalResult.color}`, color: finalResult.color }}>
+            {finalResult.label}
+          </div>
+          <div className="game-play-summary">
+            {stat} {base}{finalResult.bonus !== 0 && (
+              <span style={{ color: finalResult.bonus > 0 ? GREEN : RED }}> {formatModifier(finalResult.bonus)}</span>
+            )} = <span className="highlight">{finalResult.value}</span>
+          </div>
+          <GameTakeBtn stat={stat} value={finalResult.value} onClick={() => onComplete(stat, finalResult.value)} />
+        </div>
+      )}
+    </GameShell>
+  )
+}
+
+function SlotsStatMode({
+  card, cycleStats, available, onComplete, compact,
+}: {
+  card: RealPlayer
+  cycleStats: StatKey[]
+  available: StatKey[]
+  onComplete: (stat: StatKey, value: number) => void
+  compact?: boolean
+}) {
   const [reels, setReels] = useState<[StatKey, StatKey, StatKey]>(() => {
     const n = cycleStats.length
     const pick = (i: number) => cycleStats[i % n]
     return [pick(0), pick(Math.max(1, Math.floor(n / 3))), pick(Math.max(2, Math.floor(2 * n / 3)))]
   })
-  const [stopped,  setStopped]  = useState<[boolean,boolean,boolean]>([false,false,false])
+  const [stopped, setStopped] = useState<[boolean, boolean, boolean]>([false, false, false])
   const [revealed, setRevealed] = useState(false)
-  const stoppedRef = useRef([false,false,false])
+  const stoppedRef = useRef([false, false, false])
 
   useEffect(() => {
     if (revealed) return
@@ -219,7 +417,7 @@ function SlotsGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
   function stopReel(i: number) {
     if (stoppedRef.current[i] || revealed) return
     stoppedRef.current[i] = true
-    const snap: [boolean,boolean,boolean] = [stoppedRef.current[0],stoppedRef.current[1],stoppedRef.current[2]]
+    const snap: [boolean, boolean, boolean] = [stoppedRef.current[0], stoppedRef.current[1], stoppedRef.current[2]]
     setStopped(snap)
     if (snap.every(Boolean)) setTimeout(() => setRevealed(true), 500)
   }
@@ -233,31 +431,31 @@ function SlotsGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
     const double = (Object.entries(counts) as [StatKey, number][]).find(([s, v]) => v === 2 && pool.includes(s))
     if (triple) return { kind: 'triple' as const, stat: triple[0] }
     if (double) return { kind: 'double' as const, stat: double[0] }
-    // Miss — middle reel, but never a stat that's already locked
     const missStat = pool.includes(reels[1]) ? reels[1] : pool[0]
     return { kind: 'miss' as const, stat: missStat }
   })() : null
 
   const finalResult = matchResult ? (() => {
     switch (matchResult.kind) {
-      case 'triple': return { stat:matchResult.stat, value:Math.min(99,card.stats[matchResult.stat]+8),  bonus:8,  label:'🎰 JACKPOT! +8',   color:GOLD  }
-      case 'double': return { stat:matchResult.stat, value:Math.min(99,card.stats[matchResult.stat]+4),  bonus:4,  label:'✨ MATCH! +4',      color:GREEN }
-      case 'miss':   return { stat:matchResult.stat, value:card.stats[matchResult.stat],                  bonus:0,  label:'❌ NO MATCH',       color:RED   }
+      case 'triple': return { stat: matchResult.stat, value: Math.min(99, card.stats[matchResult.stat] + 8), bonus: 8, label: '🎰 JACKPOT! +8', color: GOLD }
+      case 'double': return { stat: matchResult.stat, value: Math.min(99, card.stats[matchResult.stat] + 4), bonus: 4, label: '✨ MATCH! +4', color: GREEN }
+      case 'miss':   return { stat: matchResult.stat, value: card.stats[matchResult.stat], bonus: 0, label: '❌ NO MATCH', color: RED }
     }
   })() : null
 
   return (
     <GameShell compact={compact} icon="🎰" title="SLOTS" hint="Stop all 3 on the SAME stat for a bonus. Miss = middle reel, no bonus." accent={GOLD} playerCard={card}>
       <div className="game-slots-row">
-        {([0,1,2] as const).map(i => {
-          const s = reels[i]; const isStopped = stopped[i]
-          const isWinner = revealed && finalResult && finalResult.bonus>0 && matchResult?.stat===s
+        {([0, 1, 2] as const).map(i => {
+          const s = reels[i]
+          const isStopped = stopped[i]
+          const isWinner = revealed && finalResult && finalResult.bonus > 0 && matchResult?.stat === s
           return (
             <button
               key={i}
               type="button"
               onClick={() => stopReel(i)}
-              disabled={isStopped||revealed}
+              disabled={isStopped || revealed}
               className="game-slots-reel"
               style={{
                 background: isWinner ? `rgba(${hexToRgb(GOLD)},0.2)` : isStopped ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)',
@@ -268,8 +466,8 @@ function SlotsGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
             >
               <span className="game-slots-reel__stat" style={{ color: isStopped ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)' }}>{s}</span>
               <span className="game-slots-reel__val" style={{ color: isWinner ? GOLD : isStopped ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.5)' }}>{card.stats[s]}</span>
-              {!isStopped && !revealed && <span style={{ fontSize:9, color:'rgba(255,255,255,0.25)' }}>TAP</span>}
-              {isStopped && !revealed && <span style={{ fontSize:9, color:GOLD }}>LOCKED</span>}
+              {!isStopped && !revealed && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>TAP</span>}
+              {isStopped && !revealed && <span style={{ fontSize: 9, color: GOLD }}>LOCKED</span>}
             </button>
           )
         })}
@@ -277,11 +475,11 @@ function SlotsGame({ card, takenStats, onComplete, compact }: MiniGameProps) {
       {allStopped && !revealed && <div className="game-play-summary">spinning down…</div>}
       {revealed && finalResult && (
         <div className="game-center-stack">
-          <div className="game-result-badge" style={{ background:`rgba(${hexToRgb(finalResult.color)},0.15)`, border:`1px solid ${finalResult.color}`, color:finalResult.color }}>
+          <div className="game-result-badge" style={{ background: `rgba(${hexToRgb(finalResult.color)},0.15)`, border: `1px solid ${finalResult.color}`, color: finalResult.color }}>
             {finalResult.label}
           </div>
           <div className="game-play-summary">
-            {finalResult.stat} {card.stats[finalResult.stat]}{finalResult.bonus>0 && <span style={{ color:GREEN }}> +{finalResult.bonus}</span>} = <span className="highlight">{finalResult.value}</span>
+            {finalResult.stat} {card.stats[finalResult.stat]}{finalResult.bonus > 0 && <span style={{ color: GREEN }}> +{finalResult.bonus}</span>} = <span className="highlight">{finalResult.value}</span>
           </div>
           <GameTakeBtn stat={finalResult.stat} value={finalResult.value} onClick={() => onComplete(finalResult.stat, finalResult.value)} />
         </div>
