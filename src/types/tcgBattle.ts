@@ -56,4 +56,8 @@ export interface BattleState {
   log: LogEntry[]
   winner: 'player' | 'ai' | null
   logSeq: number
+  // ── Soccer score tracking ──────────────────────────────────────
+  playerGoals: number       // direct stadium hits by player
+  aiGoals: number           // direct stadium hits by AI
+  pendingGoalFlash: 'player' | 'ai' | null   // cleared by UI after animation
 }
