@@ -24,7 +24,7 @@ export const POSITIONS: Position[] = [
 
 export type PlayerStats = Record<StatKey, number>
 
-export type PackRarity = 'bronze' | 'silver' | 'gold'
+export type PackRarity = 'bronze' | 'silver' | 'gold' | 'icon'
 
 export interface RealPlayer {
   id: string
@@ -168,9 +168,10 @@ export interface ActiveBattle {
   playerGoals:     number   // cumulative AFTER each completed round animation
   aiGoals:         number
   completedRounds: BattleRound[]
-  momentumPlayer:  number   // consecutive scoring attacks (resets on miss)
-  momentumAi:      number
-  subUsed:         boolean
+  momentumPlayer:     number   // consecutive scoring attacks (resets on miss)
+  momentumAi:         number
+  subUsed:            boolean
+  attackerUseCounts:  Record<string, number>  // cardId → times used this match
 }
 
 // Formation layout configs — 7 outfield players, no GK

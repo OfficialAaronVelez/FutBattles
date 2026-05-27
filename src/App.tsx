@@ -258,7 +258,7 @@ export default function App() {
     )
   }
 
-  const isTCGAdmin  = session.user.email === 'aaronvelezcoronado@gmail.com'
+  const isTCGAdmin  = import.meta.env.DEV && session.user.email === 'aaronvelezcoronado@gmail.com'
   const inBattle    = battle !== null
   const isImmersive = !!packSession || (inBattle && battle?.phase !== 'team-select')
 

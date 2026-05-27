@@ -16,7 +16,15 @@ const COSMETIC_NAME: Record<CardCosmetic, string> = {
   base: 'Base', neon: 'Neon', fire: 'Fire', ice: 'Ice', chrome: 'Chrome', shadow: 'Shadow',
 }
 
-function getStatColor(value: number): string {
+function getStatColor(value: number, isChrome = false): string {
+  // Chrome has a light silver background — use dark, readable colours
+  if (isChrome) {
+    if (value >= 90) return '#7a4f00'   // deep amber
+    if (value >= 80) return '#4a3400'   // dark gold-brown
+    if (value >= 70) return '#1a2030'   // near-black blue
+    if (value >= 60) return '#3a3a3a'
+    return '#5a5a6a'
+  }
   if (value >= 90) return '#fff7d4'
   if (value >= 80) return '#ffe0a0'
   if (value >= 70) return '#fff'
@@ -160,7 +168,7 @@ export function FutCard({
               >
                 <span
                   className="futcard__stat-val"
-                  style={{ color: value !== undefined ? getStatColor(value) : 'inherit' }}
+                  style={{ color: value !== undefined ? getStatColor(value, userCos === 'chrome') : 'inherit' }}
                 >
                   {value ?? '—'}
                 </span>

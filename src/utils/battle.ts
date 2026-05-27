@@ -12,10 +12,14 @@ export const TOTAL_ROUNDS        = 5
 const MOMENTUM_THRESHOLD  = 3   // consecutive scoring attacks needed
 const MOMENTUM_BONUS      = 12  // flat bonus to attack roll at threshold
 const CREATION_BONUS      = 10  // bonus for winning the PAS duel
-const RAND_ATK            = 14  // attack roll noise ceiling
-const RAND_DEF            = 12  // defence roll noise ceiling
-const RAND_LM             = 10  // last-man roll noise ceiling
+const RAND_ATK            = 22  // attack roll noise ceiling (raised from 14 — less deterministic)
+const RAND_DEF            = 14  // defence roll noise ceiling (raised from 12)
+const RAND_LM             = 12  // last-man roll noise ceiling (raised from 10)
 const RAND_PAS            = 18  // PAS duel noise ceiling
+// Fatigue: penalty per repeated use of the same attacker in a single match
+// 1st use: 0, 2nd: -10, 3rd: -20, 4th+: -30 (capped)
+const FATIGUE_PER_USE     = 10
+const FATIGUE_MAX_USES    = 3   // penalty caps at 3 stacked uses
 
 // ─── Position helpers ────────────────────────────────────────────
 type PosGroup = 'attack' | 'midfield' | 'defense'
@@ -261,6 +265,7 @@ export function resolveRound(
   aiPlayers:        RealPlayer[],
   momentumPlayer:   number,
   momentumAi:       number,
+  attackerUseCount  = 0,   // how many times this card has been used already this match
 ): BattleRound {
   const chemBonuses = computeChemBonuses(playerTeam.slots)
 
@@ -273,6 +278,11 @@ export function resolveRound(
   const pChem     = chemBonuses.get(pAtkSlot.card.id) ?? 0
   const pMomBonus = momentumPlayer >= MOMENTUM_THRESHOLD ? MOMENTUM_BONUS : 0
 
+  // Fatigue penalty — discourages spamming the same attacker every round
+  const fatigue      = Math.min(attackerUseCount, FATIGUE_MAX_USES) * FATIGUE_PER_USE
+  // Net bonus: momentum can partially cancel fatigue; fatigue can go negative (net penalty)
+  const pNetMomBonus = pMomBonus - fatigue
+
   const createDuel     = resolveCreateDuel(playerTeam.slots, aiPlayers)
   const pCreateBonus   = createDuel.playerWon ? CREATION_BONUS : 0
 
@@ -281,7 +291,7 @@ export function resolveRound(
 
   const playerAttack = resolveMatchup(
     pAtkBase, aiDefBase, aiLastManBase,
-    pOopPct, pChem, pMomBonus, pCreateBonus,
+    pOopPct, pChem, pNetMomBonus, pCreateBonus,
     createDuel,
   )
 

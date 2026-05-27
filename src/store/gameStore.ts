@@ -36,22 +36,28 @@ import { MINI_GAMES } from '../types'
 const PACK_SIZE   = 8
 const BONUS_CARDS = 1
 
-/** Apply ±5 random variance to every stat on a player card. Clamped to 40–99. */
-function varyStats(player: RealPlayer): RealPlayer {
+/** Apply random variance to every stat on a player card. Clamped to 40–99. */
+function varyStats(player: RealPlayer, rarity: PackRarity): RealPlayer {
+  const spread = rarity === 'icon' ? 3 : 5
   const varied: Partial<Record<StatKey, number>> = {}
   for (const [key, val] of Object.entries(player.stats)) {
     if (typeof val === 'number') {
-      const delta = Math.floor(Math.random() * 11) - 5   // -5 … +5
+      const delta = Math.floor(Math.random() * (spread * 2 + 1)) - spread
       varied[key as StatKey] = Math.max(40, Math.min(99, val + delta))
     }
   }
-  return { ...player, stats: varied as PlayerStats }
+  const stats = varied as PlayerStats
+  const overall = Math.round(
+    Object.values(stats).reduce((sum, v) => sum + v, 0) / Object.values(stats).length
+  )
+  return { ...player, stats, overall }
 }
 
 export const PACK_COSTS: Record<PackRarity, number> = {
   bronze: 100,
   silver: 250,
   gold:   600,
+  icon:   1500,
 }
 
 export const BATTLE_REWARDS: Record<'win' | 'loss' | 'draw', number> = {
@@ -255,7 +261,7 @@ export const useGameStore = create<GameStore>()(
         const rawCards   = getPackPlayers(rarity, PACK_SIZE)
         const cosmeticIdx = Math.floor(Math.random() * (PACK_SIZE - BONUS_CARDS))
         const packCards  = rawCards.map((p, i) => ({
-          realPlayer:    varyStats(p),
+          realPlayer:    varyStats(p, rarity),
           isBonus:       i >= PACK_SIZE - BONUS_CARDS,
           cosmeticOffer: i === cosmeticIdx ? randomCosmetic() : undefined,
         }))
@@ -286,7 +292,7 @@ export const useGameStore = create<GameStore>()(
         const cosmeticIdx = Math.floor(Math.random() * (PACK_SIZE - BONUS_CARDS))
 
         const packCards = rawCards.map((p, i) => ({
-          realPlayer: varyStats(p),
+          realPlayer: varyStats(p, rarity),
           isBonus:       i >= PACK_SIZE - BONUS_CARDS,
           cosmeticOffer: i === cosmeticIdx ? randomCosmetic() : undefined,
         }))
@@ -425,9 +431,10 @@ export const useGameStore = create<GameStore>()(
             playerGoals:     0,
             aiGoals:         0,
             completedRounds: [],
-            momentumPlayer:  0,
-            momentumAi:      0,
-            subUsed:         false,
+            momentumPlayer:     0,
+            momentumAi:         0,
+            subUsed:            false,
+            attackerUseCounts:  {},
           },
         }),
 
@@ -464,9 +471,10 @@ export const useGameStore = create<GameStore>()(
             playerGoals:     0,
             aiGoals:         0,
             completedRounds: [],
-            momentumPlayer:  0,
-            momentumAi:      0,
-            subUsed:         false,
+            momentumPlayer:     0,
+            momentumAi:         0,
+            subUsed:            false,
+            attackerUseCounts:  {},
           },
         })
       },
@@ -475,6 +483,8 @@ export const useGameStore = create<GameStore>()(
         const { battle } = get()
         if (!battle?.playerTeam || battle.phase !== 'round-pick') return
 
+        const prevUseCount = battle.attackerUseCounts[cardId] ?? 0
+
         const round = resolveRound(
           cardId,
           battle.currentRound,
@@ -482,6 +492,7 @@ export const useGameStore = create<GameStore>()(
           battle.aiPlayers,
           battle.momentumPlayer,
           battle.momentumAi,
+          prevUseCount,
         )
 
         set({
@@ -490,6 +501,10 @@ export const useGameStore = create<GameStore>()(
             phase:           'battling',
             completedRounds: [...battle.completedRounds, round],
             // Goals and momentum updated AFTER animation (advanceBattleRound)
+            attackerUseCounts: {
+              ...battle.attackerUseCounts,
+              [cardId]: prevUseCount + 1,
+            },
           },
         })
       },

@@ -235,14 +235,17 @@ function PitchStrip({ playerGoals, aiGoals, round, total }: {
 
 // ─── AttackerPickCard ────────────────────────────────────────────────────────
 
-function AttackerPickCard({ slot, card, chemBonus, onPick }: {
-  slot: FormationSlot; card: UserCard; chemBonus: number; onPick: () => void
+function AttackerPickCard({ slot, card, chemBonus, useCount, onPick }: {
+  slot: FormationSlot; card: UserCard; chemBonus: number; useCount: number; onPick: () => void
 }) {
-  const oop    = oopPenaltyPct(card.position, slot.row)
-  const pac    = Math.round((card.stats.PAC ?? 70) * (1 - oop / 100)) + chemBonus
-  const sho    = Math.round((card.stats.SHO ?? 70) * (1 - oop / 100)) + chemBonus
-  const dri    = Math.round((card.stats.DRI ?? 70) * (1 - oop / 100)) + chemBonus
-  const power  = Math.round(pac * 0.30 + sho * 0.45 + dri * 0.25)
+  const oop      = oopPenaltyPct(card.position, slot.row)
+  const pac      = Math.round((card.stats.PAC ?? 70) * (1 - oop / 100)) + chemBonus
+  const sho      = Math.round((card.stats.SHO ?? 70) * (1 - oop / 100)) + chemBonus
+  const dri      = Math.round((card.stats.DRI ?? 70) * (1 - oop / 100)) + chemBonus
+  const basePower = Math.round(pac * 0.30 + sho * 0.45 + dri * 0.25)
+  // Mirror the fatigue formula from battle.ts (FATIGUE_PER_USE=10, max 3 stacks)
+  const fatiguePenalty = Math.min(useCount, 3) * 10
+  const power    = Math.max(40, basePower - fatiguePenalty)
   const powerPct = Math.round(Math.min(100, ((power - 40) / 59) * 100))
 
   const rawStats = Object.values(card.stats).filter((v): v is number => typeof v === 'number')
@@ -315,8 +318,8 @@ function AttackerPickCard({ slot, card, chemBonus, onPick }: {
         </div>
 
         {/* Badges */}
-        {(oop > 0 || chemBonus > 0) && (
-          <div style={{ display: 'flex', gap: 4 }}>
+        {(oop > 0 || chemBonus > 0 || useCount > 0) && (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {oop > 0 && (
               <span style={{ fontSize: 9, color: 'rgba(255,160,0,0.9)', background: 'rgba(255,160,0,0.12)', padding: '2px 6px', borderRadius: 4 }}>
                 ⚠ -{oop}% OOP
@@ -325,6 +328,15 @@ function AttackerPickCard({ slot, card, chemBonus, onPick }: {
             {chemBonus > 0 && (
               <span style={{ fontSize: 9, color: 'var(--green-1)', background: 'rgba(68,255,158,0.10)', padding: '2px 6px', borderRadius: 4 }}>
                 ⚗ +{chemBonus} CHEM
+              </span>
+            )}
+            {useCount > 0 && (
+              <span style={{
+                fontSize: 9, padding: '2px 6px', borderRadius: 4,
+                color: useCount >= 3 ? 'rgba(255,80,80,0.95)' : 'rgba(255,160,80,0.95)',
+                background: useCount >= 3 ? 'rgba(255,80,80,0.12)' : 'rgba(255,160,80,0.12)',
+              }}>
+                😤 -{fatiguePenalty} FATIGUE
               </span>
             )}
           </div>
@@ -535,7 +547,7 @@ function RoundPickScreen() {
   const { battle, pickBattleAttacker, resetBattle } = useGameStore()
   if (!battle?.playerTeam) return null
 
-  const { currentRound, totalRounds, playerGoals, aiGoals, momentumPlayer, momentumAi } = battle
+  const { currentRound, totalRounds, playerGoals, aiGoals, momentumPlayer, momentumAi, attackerUseCounts } = battle
   const chemBonuses    = computeChemBonuses(battle.playerTeam.slots)
   const attackerSlots  = battle.playerTeam.slots.filter(s => s.row >= 2 && s.card)
 
@@ -584,6 +596,7 @@ function RoundPickScreen() {
               slot={slot}
               card={slot.card!}
               chemBonus={chemBonuses.get(slot.card!.id) ?? 0}
+              useCount={attackerUseCounts?.[slot.card!.id] ?? 0}
               onPick={() => pickBattleAttacker(slot.card!.id)}
             />
           ))}

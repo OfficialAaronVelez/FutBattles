@@ -1649,7 +1649,8 @@ input { font-family: inherit; }
 .futcard.cos-chrome .futcard__inner { color: #161a24; }
 .futcard.cos-chrome .futcard__name { text-shadow: none; border-top-color: rgba(0,0,0,0.2); border-bottom-color: rgba(0,0,0,0.2); }
 .futcard.cos-chrome .futcard__stat-val,
-.futcard.cos-chrome .futcard__stat-key { text-shadow: none; }
+.futcard.cos-chrome .futcard__stat-key { text-shadow: none; color: #1a1a2a; }
+/* stat-val color is overridden by inline style from getStatColor(isChrome=true) */
 .futcard.cos-chrome::after {
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.7) 50%, transparent 70%);
@@ -1828,6 +1829,7 @@ input { font-family: inherit; }
 .cardback.bronze { --cb-color: var(--bronze-1); --cb-glow: rgba(209,118,58,0.6); }
 .cardback.silver { --cb-color: var(--silver-1); --cb-glow: rgba(220,225,235,0.4); }
 .cardback.gold   { --cb-color: var(--gold-1);   --cb-glow: var(--gold-glow); }
+.cardback.icon   { --cb-color: #f5d76e;         --cb-glow: rgba(255,230,100,0.7); }
 .cardback.bonus  { --cb-color: var(--purple-1); --cb-glow: var(--purple-glow); }
 
 .cardback__pattern {
@@ -1887,6 +1889,7 @@ input { font-family: inherit; }
 .pack-art.bronze { --pa-1: var(--bronze-1); --pa-2: var(--bronze-2); --pa-3: var(--bronze-3); --pa-glow: rgba(209,118,58,0.55); --pa-ink: #2a1305; }
 .pack-art.silver { --pa-1: var(--silver-1); --pa-2: var(--silver-2); --pa-3: var(--silver-3); --pa-glow: rgba(214,221,230,0.55); --pa-ink: #161a24; }
 .pack-art.gold   { --pa-1: var(--gold-1);   --pa-2: var(--gold-2);   --pa-3: var(--gold-3);   --pa-glow: var(--gold-glow); --pa-ink: #1a1006; }
+.pack-art.icon   { --pa-1: #fff7d4; --pa-2: #f5d76e; --pa-3: #7c5a00; --pa-glow: rgba(255,230,100,0.7); --pa-ink: #1a1006; }
 
 .pack-art__bg {
   position: absolute; inset: 0; z-index: -2;
