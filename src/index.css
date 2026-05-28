@@ -1531,6 +1531,82 @@ input { font-family: inherit; }
 /* Hide stripe in Panini mode — the foil texture is enough */
 .futcard:not(.futcard--stats) .futcard__stripe { display: none; }
 
+/* ── Top branding header (Panini mode only) ─────────────── */
+.futcard__header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: linear-gradient(180deg,
+    var(--rarity-3) 0%,
+    var(--rarity-2) 50%,
+    var(--rarity-1) 100%
+  );
+  border-bottom: 1.5px solid rgba(255,255,255,0.18);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.futcard__header-logo {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--rarity-text);
+  line-height: 1;
+  opacity: 0.7;
+  letter-spacing: 0.02em;
+}
+.futcard__header-text {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--rarity-text);
+  letter-spacing: 0.28em;
+  line-height: 1;
+  opacity: 0.55;
+}
+/* Header scaling per card size */
+.futcard.size-xs .futcard__header { padding: 2px 6px; gap: 3px; }
+.futcard.size-xs .futcard__header-logo { font-size: 9px; }
+.futcard.size-xs .futcard__header-text { font-size: 6px; letter-spacing: 0.18em; }
+.futcard.size-sm .futcard__header { padding: 3px 8px; gap: 4px; }
+.futcard.size-sm .futcard__header-logo { font-size: 11px; }
+.futcard.size-sm .futcard__header-text { font-size: 8px; letter-spacing: 0.22em; }
+.futcard.size-lg .futcard__header { padding: 7px 12px; gap: 8px; }
+.futcard.size-lg .futcard__header-logo { font-size: 17px; }
+.futcard.size-lg .futcard__header-text { font-size: 13px; }
+
+/* Cosmetic-specific header theming */
+.futcard.cos-neon .futcard__header {
+  background: linear-gradient(180deg, #0f9fc7 0%, #25e0ff 50%, #44ff9e 100%);
+}
+.futcard.cos-neon .futcard__header-logo,
+.futcard.cos-neon .futcard__header-text { color: #020610; }
+
+.futcard.cos-fire .futcard__header {
+  background: linear-gradient(180deg, #8a0e00 0%, #cc1800 50%, #ff8820 100%);
+}
+.futcard.cos-fire .futcard__header-logo,
+.futcard.cos-fire .futcard__header-text { color: #180200; }
+
+.futcard.cos-ice .futcard__header {
+  background: linear-gradient(180deg, #3a7eb8 0%, #96ccee 50%, #dff1ff 100%);
+}
+.futcard.cos-ice .futcard__header-logo,
+.futcard.cos-ice .futcard__header-text { color: #082848; }
+
+.futcard.cos-chrome .futcard__header {
+  background: linear-gradient(180deg, #7080a0 0%, #c0ccdc 50%, #e8eeff 100%);
+}
+.futcard.cos-chrome .futcard__header-logo,
+.futcard.cos-chrome .futcard__header-text { color: #1a1a38; }
+
+.futcard.cos-shadow .futcard__header {
+  background: linear-gradient(180deg, #3a0e6a 0%, #7e2bd9 50%, #b96bff 100%);
+}
+.futcard.cos-shadow .futcard__header-logo,
+.futcard.cos-shadow .futcard__header-text { color: #0c0018; }
+
 /* ── Large OVR watermark (Panini mode only) ─────────────── */
 .futcard__ovr-bg {
   position: absolute;
@@ -1585,10 +1661,10 @@ input { font-family: inherit; }
 }
 
 /* ── Player photo ─────────────────────────────────────────── */
-/* Panini mode: full-bleed, no mask — the photo IS the card */
+/* Panini mode: full-bleed below the header strip */
 .futcard__photo {
   position: absolute;
-  top: 0; left: 0; right: 0; height: 92%;
+  top: 7%; left: 0; right: 0; height: 88%;
   object-fit: cover; object-position: center top;
   pointer-events: none; z-index: 0; opacity: 0.95;
 }
@@ -1606,10 +1682,10 @@ input { font-family: inherit; }
 .futcard.futcard--stats.cos-chrome .futcard__photo { mix-blend-mode: multiply; opacity: 0.88; }
 .futcard.futcard--stats.is-bonus   .futcard__photo { mix-blend-mode: screen; opacity: 0.75; }
 
-/* ── Panini badge (top-left OVR + position) ──────────────── */
+/* ── Panini badge (top-left OVR + position, below header) ── */
 .futcard__badge {
   position: absolute;
-  top: 6%; left: 5%;
+  top: 12%; left: 5%;
   z-index: 6;
   display: flex; flex-direction: column; align-items: center;
   background: linear-gradient(180deg, var(--rarity-1), var(--rarity-3));

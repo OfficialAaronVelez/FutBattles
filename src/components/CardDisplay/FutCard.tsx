@@ -235,7 +235,13 @@ export function FutCard({
       ) : (
         /* ── Panini sticker layout (collection / default) ── */
         <>
-          {/* OVR + Position badge (top-left) */}
+          {/* Top branding header strip */}
+          <div className="futcard__header">
+            <span className="futcard__header-logo">FB</span>
+            <span className="futcard__header-text">FUT BATTLES</span>
+          </div>
+
+          {/* OVR + Position badge (top-left, below header) */}
           <div className="futcard__badge">
             <div className="futcard__badge-ovr">{ovrVal || '—'}</div>
             <div className="futcard__badge-pos">{position}</div>
