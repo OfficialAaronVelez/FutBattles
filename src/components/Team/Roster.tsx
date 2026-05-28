@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useGameStore } from '../../store/gameStore'
 import { FutCard } from '../CardDisplay/FutCard'
 import { getRarityTier } from '../../data/players'
+import { STAT_KEYS } from '../../types'
 import type { UserCard, StatKey, CardCosmetic } from '../../types'
 
 function computeOverall(stats: Partial<Record<StatKey, number>>): number {
@@ -9,7 +10,7 @@ function computeOverall(stats: Partial<Record<StatKey, number>>): number {
   return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
 }
 
-// ── Card Back ─────────────────────────────────────────────────────────────────
+// ── Card Back — Stats Display ─────────────────────────────────────────────────
 
 const CARD_BACK_THEMES: Record<CardCosmetic | 'bronze' | 'silver' | 'gold' | 'icon', {
   bg: string; c1: string; c2: string; glow: string; accent?: string
@@ -26,14 +27,22 @@ const CARD_BACK_THEMES: Record<CardCosmetic | 'bronze' | 'silver' | 'gold' | 'ic
   shadow: { bg: 'linear-gradient(155deg,#0c0018 0%,#040008 100%)', c1: '#b96bff', c2: '#7e2bd9', glow: 'rgba(185,107,255,0.5)', accent: '#d8a6ff' },
 }
 
+function getStatBarColor(value: number, c1: string): string {
+  if (value >= 90) return c1
+  if (value >= 75) return `${c1}cc`
+  if (value >= 60) return `${c1}88`
+  return `${c1}55`
+}
+
 function CardBack({ card }: { card: UserCard }) {
   const ovrVal   = computeOverall(card.stats)
   const rarity   = getRarityTier(ovrVal)
   const cosmetic = card.cosmetic ?? 'base'
+  const stats    = card.stats as Partial<Record<StatKey, number>>
+  const position = card.position ?? '?'
 
-  // Base cards use rarity theming; cosmetic cards use cosmetic theming
   const themeKey = (cosmetic !== 'base' ? cosmetic : rarity) as keyof typeof CARD_BACK_THEMES
-  const { bg, c1, c2, glow, accent } = CARD_BACK_THEMES[themeKey] ?? CARD_BACK_THEMES.gold
+  const { bg, c1, c2, glow } = CARD_BACK_THEMES[themeKey] ?? CARD_BACK_THEMES.gold
 
   const serialNum = card.id.replace(/-/g, '').slice(0, 8).toUpperCase()
 
@@ -45,8 +54,9 @@ function CardBack({ card }: { card: UserCard }) {
       position: 'relative',
       overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center',
       userSelect: 'none',
+      padding: '28px 24px 20px',
     }}>
 
       {/* Diamond grid pattern */}
@@ -58,112 +68,105 @@ function CardBack({ card }: { card: UserCard }) {
           `linear-gradient(-45deg, transparent 48%, ${c1} 49%, transparent 50%)`,
         ].join(','),
         backgroundSize: '18px 18px, 90px 90px, 90px 90px',
-        opacity: 0.09,
+        opacity: 0.06,
       }} />
 
-      {/* Radial glow behind crest */}
+      {/* Radial glow */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: `radial-gradient(ellipse 70% 60% at 50% 50%, ${c1}18 0%, transparent 70%)`,
+        background: `radial-gradient(ellipse 70% 50% at 50% 30%, ${c1}12 0%, transparent 70%)`,
       }} />
 
-      {/* Cosmetic-specific back effect overlay */}
-      {cosmetic === 'neon' && (
+      {/* Player name + position header */}
+      <div style={{ textAlign: 'center', width: '100%', position: 'relative', zIndex: 2, marginBottom: 16 }}>
         <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          backgroundImage: [
-            `repeating-linear-gradient(0deg,   transparent, transparent 22px, ${c1}08 22px, ${c1}08 23px)`,
-            `repeating-linear-gradient(90deg,  transparent, transparent 22px, ${c1}06 22px, ${c1}06 23px)`,
-          ].join(','),
-        }} />
-      )}
-      {cosmetic === 'fire' && (
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0, height: '45%', pointerEvents: 'none',
-          background: `radial-gradient(ellipse 100% 60% at 50% 110%, ${c1}55 0%, ${c2}30 40%, transparent 65%)`,
-          filter: 'blur(6px)',
-        }} />
-      )}
-      {cosmetic === 'ice' && (
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          backgroundImage: [
-            `repeating-linear-gradient( 60deg, transparent, transparent 9px, ${accent ?? c1}10 9px, ${accent ?? c1}10 10px)`,
-            `repeating-linear-gradient(-60deg, transparent, transparent 9px, ${c1}07 9px, ${c1}07 10px)`,
-          ].join(','),
-        }} />
-      )}
-      {cosmetic === 'shadow' && (
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: [
-            `radial-gradient(circle at 18% 12%, rgba(255,255,255,0.9) 0.5px, transparent 1.5px)`,
-            `radial-gradient(circle at 72%  8%, rgba(255,255,255,0.8) 0.5px, transparent 1.5px)`,
-            `radial-gradient(circle at 42% 22%, rgba(255,255,255,0.7) 0.5px, transparent 1.5px)`,
-            `radial-gradient(circle at 88% 35%, rgba(255,255,255,0.6) 0.5px, transparent 1.5px)`,
-            `radial-gradient(circle at 12% 48%, rgba(255,255,255,0.8) 0.5px, transparent 1.5px)`,
-            `radial-gradient(circle at 58% 55%, rgba(255,255,255,0.5) 0.5px, transparent 1.5px)`,
-            `radial-gradient(circle at 32% 72%, rgba(255,255,255,0.6) 0.5px, transparent 1.5px)`,
-            `radial-gradient(circle at 82% 78%, rgba(255,255,255,0.7) 0.5px, transparent 1.5px)`,
-            `radial-gradient(circle at 20% 88%, rgba(255,255,255,0.5) 0.5px, transparent 1.5px)`,
-            `radial-gradient(ellipse 70% 55% at 50% 45%, ${c1}18 0%, transparent 70%)`,
-          ].join(','),
-        }} />
-      )}
-
-      {/* Central crest area */}
-      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-
-        {/* Outer ring */}
-        <div style={{
-          width: 86, height: 86, borderRadius: '50%', position: 'relative',
-          display: 'grid', placeItems: 'center',
-          background: `radial-gradient(circle, ${c1}1a 0%, transparent 65%)`,
-          border: `1.5px solid ${c1}50`,
-          boxShadow: `0 0 24px ${glow}, inset 0 0 16px ${c1}10`,
+          fontFamily: 'var(--font-display)', fontSize: 24,
+          color: c1, letterSpacing: '0.06em',
+          textShadow: `0 0 14px ${glow}`,
+          lineHeight: 1,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          textTransform: 'uppercase',
         }}>
-          {/* Inner ring */}
-          <div style={{
-            position: 'absolute', inset: 8, borderRadius: '50%',
-            border: `1px solid ${c1}30`,
-          }} />
-          {/* Ball icon */}
-          <span style={{ fontSize: 36, lineHeight: 1, filter: `drop-shadow(0 0 8px ${glow})` }}>⚽</span>
+          {card.name || '—'}
         </div>
-
-        {/* Brand text */}
-        <div style={{ textAlign: 'center', lineHeight: 1 }}>
-          <div style={{
-            fontFamily: 'var(--font-display)', fontSize: 10,
-            letterSpacing: '0.45em', color: `${c1}80`,
-            marginBottom: 6,
-          }}>
-            PREMIUM CARD
-          </div>
-          <div style={{
-            fontFamily: 'var(--font-display)', fontSize: 32, letterSpacing: '0.12em',
-            color: c1, textShadow: `0 0 18px ${glow}, 0 0 36px ${glow}50`,
-            lineHeight: 1,
-          }}>
-            FUT
-          </div>
-          <div style={{
-            fontFamily: 'var(--font-display)', fontSize: 32, letterSpacing: '0.12em',
-            color: accent ?? c2, textShadow: `0 0 14px ${glow}80`,
-            lineHeight: 1,
-          }}>
-            BATTLES
-          </div>
-        </div>
-
-        {/* Rarity/cosmetic label */}
         <div style={{
-          fontFamily: 'var(--font-ui)', fontSize: 9,
-          letterSpacing: '0.25em', textTransform: 'uppercase',
-          color: `${c1}60`,
+          fontFamily: 'var(--font-display)', fontSize: 13,
+          color: `${c1}70`, letterSpacing: '0.18em',
+          marginTop: 4,
         }}>
-          {cosmetic !== 'base' ? cosmetic : rarity}
+          {position}
         </div>
+      </div>
+
+      {/* Separator line */}
+      <div style={{
+        width: '60%', height: 1, marginBottom: 16,
+        background: `linear-gradient(90deg, transparent, ${c1}40, transparent)`,
+      }} />
+
+      {/* Large OVR */}
+      <div style={{
+        fontFamily: 'var(--font-display)', fontSize: 72,
+        color: c1, lineHeight: 0.9,
+        textShadow: `0 0 24px ${glow}, 0 0 48px ${glow}40`,
+        position: 'relative', zIndex: 2,
+        marginBottom: 4,
+      }}>
+        {ovrVal || '—'}
+      </div>
+      <div style={{
+        fontFamily: 'var(--font-ui)', fontSize: 9,
+        color: `${c1}50`, letterSpacing: '0.25em',
+        textTransform: 'uppercase', marginBottom: 20,
+      }}>
+        OVERALL
+      </div>
+
+      {/* Stats grid — 3x2 */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '12px 16px',
+        width: '100%',
+        position: 'relative', zIndex: 2,
+      }}>
+        {STAT_KEYS.map(stat => {
+          const value = stats[stat] ?? 0
+          return (
+            <div key={stat} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            }}>
+              <div style={{
+                fontFamily: 'var(--font-ui)', fontSize: 9,
+                color: `${c1}60`, letterSpacing: '0.12em',
+                fontWeight: 700,
+              }}>
+                {stat}
+              </div>
+              <div style={{
+                fontFamily: 'var(--font-display)', fontSize: 28,
+                color: c1, lineHeight: 1,
+                textShadow: `0 0 8px ${glow}60`,
+              }}>
+                {value || '—'}
+              </div>
+              {/* Stat bar */}
+              <div style={{
+                width: '100%', height: 3, borderRadius: 2,
+                background: `${c1}18`,
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  width: `${Math.min(value, 99)}%`,
+                  height: '100%',
+                  borderRadius: 2,
+                  background: getStatBarColor(value, c1),
+                  transition: 'width 0.3s ease',
+                }} />
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       {/* Inner frame */}
@@ -181,22 +184,25 @@ function CardBack({ card }: { card: UserCard }) {
       ].map((pos, i) => (
         <div key={i} style={{
           position: 'absolute', ...pos, pointerEvents: 'none', zIndex: 4,
-          width: 18, height: 18,
-          borderTop: `2px solid ${c1}60`,
-          borderLeft: `2px solid ${c1}60`,
+          width: 14, height: 14,
+          borderTop: `1.5px solid ${c1}50`,
+          borderLeft: `1.5px solid ${c1}50`,
           transform: `rotate(${pos.rotate})`,
         }} />
       ))}
 
-      {/* Serial number */}
+      {/* Rarity / cosmetic label + serial */}
       <div style={{
-        position: 'absolute', bottom: 18, left: 0, right: 0,
-        textAlign: 'center',
-        fontFamily: 'var(--font-mono)', fontSize: 9,
-        letterSpacing: '0.22em', color: `${c1}30`,
-        zIndex: 2,
+        position: 'absolute', bottom: 16, left: 0, right: 0,
+        textAlign: 'center', zIndex: 2,
       }}>
-        {serialNum}
+        <div style={{
+          fontFamily: 'var(--font-ui)', fontSize: 8,
+          letterSpacing: '0.2em', textTransform: 'uppercase',
+          color: `${c2}50`,
+        }}>
+          {cosmetic !== 'base' ? cosmetic : rarity} {serialNum}
+        </div>
       </div>
     </div>
   )
